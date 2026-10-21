@@ -101,6 +101,7 @@ export class GameScene extends Phaser.Scene {
     // 6. Spawn Breakables & Pickups
     this.spawnCratesAndUrns(TS);
     this.spawnCoins(TS);
+    this.spawnProps(TS);
 
     // 7. Spawn Enemies
     this.spawnEnemies(TS);
@@ -221,6 +222,32 @@ export class GameScene extends Phaser.Scene {
         this.pickupsGroup.add(coin);
       }
     });
+  }
+
+  spawnProps(TS) {
+    // Atmospheric props: barrels, lanterns, chains, banners
+    this.levelData.plats.forEach(([px, py, plen], idx) => {
+      // Place a hanging lantern or chain below some platforms
+      if (idx % 3 === 0) {
+        this.add.image((px + plen / 2) * TS, py * TS + 18, 'prop_lantern').setDepth(12);
+      } else if (idx % 3 === 1) {
+        this.add.image(px * TS + 10, py * TS + 22, 'prop_chain').setDepth(11);
+      }
+    });
+
+    // Barrels along the ground near crates
+    this.levelData.crates.forEach(([cx, cy], idx) => {
+      if (idx % 2 === 0 && cy < 11) {
+        this.add.image((cx + 1) * TS + 12, (cy + 1) * TS - 8, 'prop_barrel').setDepth(12);
+      }
+    });
+
+    // Castle / Fortress Banners
+    if (this.theme === 'castle' || this.theme === 'fortress') {
+      for (let x = 18; x < this.levelData.width - 15; x += 24) {
+        this.add.image(x * TS + 20, 4 * TS, 'prop_banner').setDepth(11);
+      }
+    }
   }
 
   spawnEnemies(TS) {
@@ -389,8 +416,9 @@ export class GameScene extends Phaser.Scene {
       this.levelClear();
     }
 
-    // Update FX
+    // Update FX & Parallax ambient drift
     this.fx.update(time, delta);
+    this.parallax.update(time, delta);
   }
 
   levelClear() {

@@ -7,7 +7,7 @@ import { Pickup } from '../../objects/Pickup.js';
  */
 export class Grunt extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y, theme) {
-    super(scene, x, y, `enemy_grunt_${theme}`);
+    super(scene, x, y, `enemy_grunt_sheet_${theme}`, 0);
     this.scene = scene;
     this.theme = theme;
     this.hp = 2;
@@ -22,7 +22,7 @@ export class Grunt extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     this.body.setSize(26, 36);
-    this.body.setOffset(3, 4);
+    this.body.setOffset(11, 8);
     this.setDepth(20);
 
     this.setFlipX(this.facing < 0);
@@ -34,8 +34,11 @@ export class Grunt extends Phaser.Physics.Arcade.Sprite {
 
     if (this.hurtTimer > 0) {
       this.hurtTimer -= dt;
+      this.anims.play(`grunt_anim_hurt_${this.theme}`, true);
       return;
     }
+
+    this.anims.play(`grunt_anim_walk_${this.theme}`, true);
 
     if (!this.body.blocked.down) {
       // In air, keep current horizontal momentum

@@ -6,7 +6,7 @@ import { Pickup } from '../../objects/Pickup.js';
  */
 export class Bat extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y) {
-    super(scene, x, y, 'enemy_bat');
+    super(scene, x, y, 'enemy_bat_sheet', 0);
     this.scene = scene;
     this.homeX = x;
     this.homeY = y;
@@ -28,6 +28,8 @@ export class Bat extends Phaser.Physics.Arcade.Sprite {
     if (this.isDead) return;
     const dt = delta / 1000;
     this.t += dt;
+
+    this.anims.play('bat_anim_fly', true);
 
     if (this.hurtTimer > 0) {
       this.hurtTimer -= dt;

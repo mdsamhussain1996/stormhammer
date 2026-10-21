@@ -8,7 +8,7 @@ import { Pickup } from '../../objects/Pickup.js';
  */
 export class Brute extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y) {
-    super(scene, x, y, 'enemy_brute');
+    super(scene, x, y, 'enemy_brute_sheet', 0);
     this.scene = scene;
     this.hp = 6;
     this.maxHp = 6;
@@ -25,7 +25,7 @@ export class Brute extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     this.body.setSize(44, 52);
-    this.body.setOffset(6, 6);
+    this.body.setOffset(10, 8);
     this.setDepth(22);
 
     // HP Bar Graphics
@@ -37,6 +37,15 @@ export class Brute extends Phaser.Physics.Arcade.Sprite {
     const dt = delta / 1000;
 
     this.updateHpBar();
+
+    // Play appropriate state animation
+    if (this.mode === 'windup') {
+      this.anims.play('brute_anim_windup', true);
+    } else if (this.mode === 'charge') {
+      this.anims.play('brute_anim_charge', true);
+    } else {
+      this.anims.play('brute_anim_walk', true);
+    }
 
     if (this.hurtTimer > 0) {
       this.hurtTimer -= dt;

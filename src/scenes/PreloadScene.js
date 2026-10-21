@@ -1,7 +1,9 @@
+import { SpriteSheetGenerator } from '../systems/SpriteSheetGenerator.js';
+
 /**
  * PreloadScene
- * Programmatically generates rich painted textures for entities, tilesets,
- * items, and multi-layer parallax environments matching Refs A, B, and C.
+ * Programmatically generates rich painted textures and animated sprite sheets for entities,
+ * tilesets, items, and multi-layer parallax environments matching Refs A, B, and C.
  */
 export class PreloadScene extends Phaser.Scene {
   constructor() {
@@ -36,6 +38,9 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   generateAllTextures() {
+    // Generate real animated sprite sheets & register Phaser anims
+    new SpriteSheetGenerator(this).generateAll();
+
     this.generateHeroTextures();
     this.generateWeaponTextures();
     this.generateEnemyTextures();

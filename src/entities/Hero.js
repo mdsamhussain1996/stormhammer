@@ -8,7 +8,7 @@ import { Hammer } from './Hammer.js';
  */
 export class Hero extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y) {
-    super(scene, x, y, 'hero_idle');
+    super(scene, x, y, 'hero_sheet', 0);
     this.scene = scene;
 
     // Attributes
@@ -187,6 +187,31 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     // Update Hammer instance
     this.hammer.update(time, delta);
 
+    // Update Sprite Animations
+    if (this.hp > 0) {
+      if (this.isSwinging) {
+        this.anims.play('hero_anim_swing', true);
+      } else if (!this.hammer.isHeld() && this.hammer.state === 'thrown_out' && this.hammer.throwTimer < 0.25) {
+        this.anims.play('hero_anim_throw', true);
+      } else if (this.invulnerableTimer > 0.8) {
+        this.anims.play('hero_anim_hurt', true);
+      } else if (!onGround) {
+        if (this.body.velocity.y < -150) {
+          this.anims.play('hero_anim_jump_up', true);
+        } else if (this.body.velocity.y <= 150) {
+          this.anims.play('hero_anim_apex', true);
+        } else {
+          this.anims.play('hero_anim_fall', true);
+        }
+      } else {
+        if (Math.abs(this.body.velocity.x) > 25) {
+          this.anims.play('hero_anim_run', true);
+        } else {
+          this.anims.play('hero_anim_idle', true);
+        }
+      }
+    }
+
     // Pit & Lava hazard check
     const worldBottom = this.scene.worldHeightPx || 560;
     if (this.y > worldBottom + 20) {
@@ -335,6 +360,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 
   die() {
+    this.anims.play('hero_anim_death', true);
     audio.playSfx('die');
     this.scene.fx.burst(this.x, this.y, 28, [0x7fd4ff, 0xffffff, 0xa8323b], 350, 900, 600);
     this.scene.onHeroDeath();

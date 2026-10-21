@@ -25,30 +25,45 @@ export class ParallaxSystem {
       .setDepth(-100);
     this.layers.push(sky);
 
-    // Parallax Layer 1 (Far background)
+    // Parallax Layer 1 (Drifting distant clouds / smoke / mist)
     const layer1 = this.scene.add.tileSprite(0, 0, this.worldWidth * 1.5, H, `bg_l1_${this.theme}`)
       .setOrigin(0, 0)
-      .setScrollFactor(0.12, 0.05)
+      .setScrollFactor(0.08, 0.03)
       .setDepth(-90);
     this.layers.push(layer1);
 
-    // Parallax Layer 2 (Mid background)
+    // Parallax Layer 2 (Far mountains / distant towers / high masonry)
     const layer2 = this.scene.add.tileSprite(0, 0, this.worldWidth * 1.5, H, `bg_l2_${this.theme}`)
       .setOrigin(0, 0)
-      .setScrollFactor(0.28, 0.1)
+      .setScrollFactor(0.22, 0.08)
       .setDepth(-80);
     this.layers.push(layer2);
 
-    // Parallax Layer 3 (Near silhouettes / pillars / near foliage)
+    // Parallax Layer 3 (Mid tree trunks / tall bookshelves / crenellated walls)
     const layer3 = this.scene.add.tileSprite(0, 0, this.worldWidth * 1.5, H, `bg_l3_${this.theme}`)
       .setOrigin(0, 0)
-      .setScrollFactor(0.52, 0.18)
+      .setScrollFactor(0.42, 0.14)
       .setDepth(-70);
     this.layers.push(layer3);
+
+    // Parallax Layer 4 (Near silhouettes / pillars / hanging vines)
+    const layer4 = this.scene.add.tileSprite(0, 0, this.worldWidth * 1.5, H, `bg_l3_${this.theme}`)
+      .setOrigin(0, 0)
+      .setScrollFactor(0.65, 0.22)
+      .setAlpha(0.6)
+      .setDepth(-60);
+    this.layers.push(layer4);
   }
 
-  update() {
-    // Sub-pixel drifting or animation can be added if needed
+  update(time, delta) {
+    const dt = (delta || 16) / 1000;
+    // Ambient slow drift: drifting clouds/smoke (layer 1) and gentle parallax sway
+    if (this.layers[1]) {
+      this.layers[1].tilePositionX += 4.5 * dt;
+    }
+    if (this.layers[2]) {
+      this.layers[2].tilePositionX += 1.8 * dt;
+    }
   }
 
   destroy() {

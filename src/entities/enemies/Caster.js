@@ -8,7 +8,7 @@ import { Fireball } from './Fireball.js';
  */
 export class Caster extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y, theme) {
-    super(scene, x, y, `enemy_caster_${theme}`);
+    super(scene, x, y, `enemy_caster_sheet_${theme}`, 0);
     this.scene = scene;
     this.theme = theme;
     this.hp = 2;
@@ -24,7 +24,7 @@ export class Caster extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     this.body.setSize(26, 42);
-    this.body.setOffset(3, 4);
+    this.body.setOffset(11, 10);
     this.body.setImmovable(true);
     this.setDepth(20);
 
@@ -40,6 +40,13 @@ export class Caster extends Phaser.Physics.Arcade.Sprite {
     const dy = hero.y - this.y;
     this.facing = Math.sign(dx) || 1;
     this.setFlipX(this.facing < 0);
+
+    // Play caster animation
+    if (this.state === 'charging') {
+      this.anims.play(`caster_anim_charge_${this.theme}`, true);
+    } else {
+      this.anims.play(`caster_anim_idle_${this.theme}`, true);
+    }
 
     if (this.hurtTimer > 0) {
       this.hurtTimer -= dt;
