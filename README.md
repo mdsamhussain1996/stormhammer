@@ -5,7 +5,8 @@
 ---
 
 ## 🎮 Play Online
-- **Live Demo (GitHub Pages):** `https://<your-username>.github.io/<repo-name>/`
+- **Live Demo (GitHub Pages):** [https://mdsamhussain1996.github.io/stormhammer/](https://mdsamhussain1996.github.io/stormhammer/)
+- **Creator Portfolio:** [https://mdsamhussain1996.github.io/](https://mdsamhussain1996.github.io/)
 
 ---
 

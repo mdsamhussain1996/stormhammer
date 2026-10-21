@@ -137,6 +137,20 @@ export class TitleScene extends Phaser.Scene {
       });
     }
 
+    // Portfolio Link Button
+    const portBtn = this.add.text(W / 2, 420, '🌐 Creator Portfolio: mdsamhussain1996.github.io', {
+      fontFamily: "'Alegreya Sans SC', sans-serif",
+      fontSize: '15px',
+      color: '#7fd4ff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    portBtn.on('pointerover', () => portBtn.setColor('#ffffff'));
+    portBtn.on('pointerout', () => portBtn.setColor('#7fd4ff'));
+    portBtn.on('pointerdown', () => {
+      window.open('https://mdsamhussain1996.github.io/', '_blank');
+    });
+
     // Play subtle forest BGM
     audio.playThemeBgm('forest');
 
