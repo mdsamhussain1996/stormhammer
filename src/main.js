@@ -7,6 +7,7 @@ import { GameScene } from './scenes/GameScene.js';
 import { HUDScene } from './scenes/HUDScene.js';
 import { PauseScene } from './scenes/PauseScene.js';
 import { LevelClearScene } from './scenes/LevelClearScene.js';
+import { ForgeScene } from './scenes/ForgeScene.js';
 import { GameOverScene } from './scenes/GameOverScene.js';
 import { VictoryScene } from './scenes/VictoryScene.js';
 
@@ -46,6 +47,7 @@ const config = {
     HUDScene,
     PauseScene,
     LevelClearScene,
+    ForgeScene,
     GameOverScene,
     VictoryScene
   ]

@@ -7,10 +7,17 @@ import { Grunt } from '../entities/enemies/Grunt.js';
 import { Bat } from '../entities/enemies/Bat.js';
 import { Brute } from '../entities/enemies/Brute.js';
 import { Caster } from '../entities/enemies/Caster.js';
+import { Archer } from '../entities/enemies/Archer.js';
+import { ShieldKnight } from '../entities/enemies/ShieldKnight.js';
+import { TreantBoss } from '../entities/enemies/TreantBoss.js';
+import { WraithBoss } from '../entities/enemies/WraithBoss.js';
+import { EmberJarlBoss } from '../entities/enemies/EmberJarlBoss.js';
 
 import { Crate } from '../objects/Crate.js';
 import { Urn } from '../objects/Urn.js';
 import { Gate } from '../objects/Gate.js';
+import { CrackedBlock } from '../objects/CrackedBlock.js';
+import { MovingPlatform, CrumblingPlatform } from '../objects/MovingPlatform.js';
 
 import { InputSystem } from '../systems/Input.js';
 import { FXSystem } from '../systems/FX.js';
@@ -78,18 +85,40 @@ export class GameScene extends Phaser.Scene {
     this.pickupsGroup = this.physics.add.group();
     this.enemiesGroup = this.physics.add.group();
     this.fireballsGroup = this.physics.add.group();
+    this.arrowsGroup = this.physics.add.group();
+    this.crackedBlocksGroup = this.physics.add.staticGroup();
+    this.movingPlatformsGroup = this.physics.add.group();
+    this.crumblingPlatformsGroup = this.physics.add.staticGroup();
+
+    this.activeBoss = null;
+
+    // 3-Star and Secrets Tracking
+    this.stats = { foundKey: false, allSecrets: false, died: false };
+    this.totalSecretsInLevel = (this.levelData.crackedBlocks || []).length;
+    this.secretsFoundCount = 0;
+    this.secretFound = () => {
+      this.secretsFoundCount++;
+      if (this.secretsFoundCount >= this.totalSecretsInLevel) {
+        this.stats.allSecrets = true;
+      }
+    };
 
     // Build map tiles
     this.buildLevelGeometry(cols, rows, TS);
 
-    // 4. Hero Spawn
+    // 4. Hero Spawn & Persistent Upgrades
     const spawnX = this.levelData.start.x * TS;
     const spawnY = this.levelData.start.y * TS;
     this.hero = new Hero(this, spawnX, spawnY);
 
+    const upgrades = SaveSystem.getUpgrades();
+    this.hero.maxHp = 5 + (upgrades.maxHp || 0);
+    this.hero.hp = this.hero.maxHp;
+    this.hero.hammer.maxThrowDistance += (upgrades.throwRange || 0) * 60;
+
     // Restore inherited player state if continuing
     if (this.inheritedPlayerState) {
-      this.hero.hp = this.inheritedPlayerState.hp || 5;
+      this.hero.hp = Math.min(this.hero.maxHp, this.inheritedPlayerState.hp || 5);
       this.hero.coins = this.inheritedPlayerState.coins || 0;
       this.hero.score = this.inheritedPlayerState.score || 0;
       this.hero.hasWingBoots = !!this.inheritedPlayerState.hasWingBoots;
@@ -98,13 +127,16 @@ export class GameScene extends Phaser.Scene {
     // 5. Gate Spawn
     this.gate = new Gate(this, this.levelData.gate.x, this.levelData.gate.y, this.worldHeightPx);
 
-    // 6. Spawn Breakables & Pickups
+    // 6. Spawn Breakables, Pickups, and Special Mechanics
     this.spawnCratesAndUrns(TS);
     this.spawnCoins(TS);
     this.spawnProps(TS);
+    this.spawnCrackedBlocks(TS);
+    this.spawnSpecialPlatforms(TS);
 
-    // 7. Spawn Enemies
+    // 7. Spawn Enemies & Bosses
     this.spawnEnemies(TS);
+    this.setupHazards();
 
     // 8. Collisions & Overlaps
     this.setupCollisions();
@@ -259,6 +291,69 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  spawnCrackedBlocks(TS) {
+    if (!this.levelData.crackedBlocks) return;
+    this.levelData.crackedBlocks.forEach(([bx, by, reward]) => {
+      const block = new CrackedBlock(this, bx * TS + TS / 2, by * TS + TS / 2, reward);
+      this.crackedBlocksGroup.add(block);
+      this.setTile(bx, by, 1);
+    });
+  }
+
+  spawnSpecialPlatforms(TS) {
+    // Moving platforms
+    if (this.levelData.movingPlats) {
+      this.levelData.movingPlats.forEach(([sx, sy, ex, ey, spd]) => {
+        const mp = new MovingPlatform(this, sx * TS + TS / 2, sy * TS + TS / 2, ex * TS + TS / 2, ey * TS + TS / 2, spd, this.theme);
+        this.movingPlatformsGroup.add(mp);
+      });
+    }
+
+    // Crumbling platforms
+    if (this.levelData.crumblingPlats) {
+      this.levelData.crumblingPlats.forEach(([cx, cy]) => {
+        const cp = new CrumblingPlatform(this, cx * TS + TS / 2, cy * TS + TS / 2, this.theme);
+        this.crumblingPlatformsGroup.add(cp);
+      });
+    }
+  }
+
+  setupHazards() {
+    if (this.theme === 'fortress') {
+      this.time.addEvent({
+        delay: 3600,
+        loop: true,
+        callback: () => {
+          if (!this.hero || this.hero.hp <= 0) return;
+          const geyserX = this.hero.x + (Math.random() - 0.5) * 160;
+          const geyserY = this.worldHeightPx - 20;
+          this.fx.burst(geyserX, geyserY, 14, [0xff3300, 0xf2c14e, 0xffffff], 200, 600, -500);
+          audio.playSfx('break');
+          this.fx.shake(0.008, 150);
+        }
+      });
+    } else if (this.theme === 'forest') {
+      this.time.addEvent({
+        delay: 4500,
+        loop: true,
+        callback: () => {
+          if (!this.hero || this.hero.hp <= 0) return;
+          const acornX = this.hero.x + (Math.random() - 0.5) * 120;
+          const acorn = this.add.circle(acornX, 40, 6, 0x5a3d28).setDepth(20);
+          this.physics.add.existing(acorn);
+          acorn.body.setVelocityY(280);
+          this.physics.add.overlap(acorn, this.hero, () => {
+            this.hero.takeHit(1, acorn.x);
+            acorn.destroy();
+          });
+          this.time.delayedCall(2200, () => {
+            if (acorn.active) acorn.destroy();
+          });
+        }
+      });
+    }
+  }
+
   spawnEnemies(TS) {
     this.levelData.enemies.forEach(eData => {
       let enemy = null;
@@ -278,6 +373,24 @@ export class GameScene extends Phaser.Scene {
         case 'caster':
           enemy = new Caster(this, ex, ey, this.theme);
           break;
+        case 'archer':
+          enemy = new Archer(this, ex, ey, this.theme);
+          break;
+        case 'shield_knight':
+          enemy = new ShieldKnight(this, ex, ey, this.theme);
+          break;
+        case 'treant_boss':
+          enemy = new TreantBoss(this, ex, ey);
+          this.activeBoss = enemy;
+          break;
+        case 'wraith_boss':
+          enemy = new WraithBoss(this, ex, ey);
+          this.activeBoss = enemy;
+          break;
+        case 'ember_jarl_boss':
+          enemy = new EmberJarlBoss(this, ex, ey);
+          this.activeBoss = enemy;
+          break;
       }
 
       if (enemy) {
@@ -287,12 +400,20 @@ export class GameScene extends Phaser.Scene {
   }
 
   setupCollisions() {
-    // Hero vs Solids
+    // Hero vs Solids & Cracked Blocks
     this.physics.add.collider(this.hero, this.solidsGroup);
+    this.physics.add.collider(this.hero, this.crackedBlocksGroup);
+    this.physics.add.collider(this.enemiesGroup, this.crackedBlocksGroup);
 
     // Hero vs One-way platforms (ignored while dropping down)
     this.physics.add.collider(this.hero, this.platformsGroup, null, () => {
       return this.hero.droppingThroughPlank <= 0;
+    });
+
+    // Hero vs Moving & Crumbling platforms
+    this.physics.add.collider(this.hero, this.movingPlatformsGroup);
+    this.physics.add.collider(this.hero, this.crumblingPlatformsGroup, (hero, cp) => {
+      if (cp.stepOn) cp.stepOn();
     });
 
     // Hero vs Crates (solid)
@@ -330,12 +451,17 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    // Hero vs Fireballs
+    // Hero vs Fireballs & Arrows
     this.physics.add.overlap(this.hero, this.fireballsGroup, (hero, fireball) => {
       if (!fireball.isDead) {
         fireball.explode();
         hero.takeHit(1, fireball.x);
       }
+    });
+
+    this.physics.add.overlap(this.hero, this.arrowsGroup, (hero, arrow) => {
+      hero.takeHit(1, arrow.x);
+      arrow.destroy();
     });
 
     // Hero vs Spikes
@@ -352,7 +478,7 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.overlap(this.hero.hammer, this.cratesGroup, (hammer, crate) => {
       if (!crate.broken && !hammer.isHeld()) {
         crate.smash(this.hero.stormTimer > 0);
-        hammer.turnAround();
+        if (!hammer.isCharged) hammer.turnAround();
       }
     });
 
@@ -363,10 +489,18 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    // Thrown Hammer vs Fireballs
+    // Thrown Hammer vs Fireballs & Arrows
     this.physics.add.overlap(this.hero.hammer, this.fireballsGroup, (hammer, fireball) => {
       if (!fireball.isDead && !hammer.isHeld()) {
         fireball.smash();
+      }
+    });
+
+    this.physics.add.overlap(this.hero.hammer, this.arrowsGroup, (hammer, arrow) => {
+      if (!hammer.isHeld()) {
+        audio.playSfx('hit');
+        this.fx.burst(arrow.x, arrow.y, 5, [0x7fd4ff, 0xffffff], 90, 220, 0);
+        arrow.destroy();
       }
     });
   }
@@ -414,9 +548,18 @@ export class GameScene extends Phaser.Scene {
       enemy.update(time, delta, this.hero);
     });
 
-    // Update Fireballs
+    // Update Moving Platforms
+    this.movingPlatformsGroup.getChildren().forEach(mp => {
+      mp.update(time, delta);
+    });
+
+    // Update Fireballs & Arrows
     this.fireballsGroup.getChildren().forEach(fb => {
       fb.update(time, delta);
+    });
+
+    this.arrowsGroup.getChildren().forEach(arr => {
+      arr.update(time, delta);
     });
 
     // Check Gate Proximity & Level Complete
@@ -438,6 +581,7 @@ export class GameScene extends Phaser.Scene {
     // Save progression
     SaveSystem.setHighestRealm(this.currentRealm + 1);
     SaveSystem.setBestScore(this.currentRealm, this.hero.score);
+    SaveSystem.addTotalCoins(this.hero.coins);
 
     this.scene.stop('HUDScene');
     this.scene.start('LevelClearScene', {
@@ -446,11 +590,13 @@ export class GameScene extends Phaser.Scene {
       coins: this.hero.coins,
       kills: this.hero.kills,
       score: this.hero.score,
-      hasWingBoots: this.hero.hasWingBoots
+      hasWingBoots: this.hero.hasWingBoots,
+      stats: this.stats
     });
   }
 
   onHeroDeath() {
+    this.stats.died = true;
     this.time.delayedCall(800, () => {
       this.scene.stop('HUDScene');
       this.scene.start('GameOverScene', {

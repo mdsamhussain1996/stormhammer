@@ -1,4 +1,5 @@
 import { audio } from '../systems/Audio.js';
+import { triggerHaptic } from '../systems/Input.js';
 import { Hammer } from './Hammer.js';
 
 /**
@@ -46,6 +47,14 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.swingDuration = 0.3; // 0.3s
     this.swingHitEnemies = new Set();
     this.swingHitObjects = new Set();
+
+    // Thunder Meter & Special Moves
+    this.thunderMeter = 0; // 0 to 100
+    this.throwChargeTimer = 0;
+    this.hasPlayedChargeCue = false;
+    this.isSlamming = false;
+    this.slamHitEnemies = new Set();
+    this.slamGraphics = scene.add.graphics().setDepth(26);
 
     // Weapon
     this.hammer = new Hammer(scene, this);
@@ -198,14 +207,63 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       this.setVelocityY(-300);
     }
 
+    // Active Ground Slam Dive
+    if (this.isSlamming) {
+      this.setVelocityX(0);
+      this.setVelocityY(880);
+      this.slamGraphics.clear();
+      this.slamGraphics.lineStyle(6, 0x7fd4ff, 0.85);
+      this.slamGraphics.lineBetween(this.x, this.y - 32, this.x, this.y + 16);
+
+      if (onGround) {
+        this.performGroundSlamImpact();
+      }
+      this.hammer.update(time, delta);
+      return;
+    }
+
+    // Ground Slam Trigger: press ↓ + J in mid-air
+    if (!onGround && input.isDown() && input.justSwing()) {
+      this.startGroundSlam();
+      return;
+    }
+
+    // Thunder Strike Trigger: press L when meter full
+    if (input.justThunder() && this.thunderMeter >= 100) {
+      this.useThunderStrike();
+    }
+
     // Melee Attack (Swing)
     if (input.justSwing() && !this.isSwinging && this.hammer.isHeld()) {
       this.startSwing();
     }
 
-    // Thrown Hammer Attack
-    if (input.justThrow() && !this.isSwinging && this.hammer.isHeld()) {
-      this.hammer.throw(this.facing);
+    // Thrown Hammer Attack & Charged Throw & Recall Pull
+    if (this.hammer.isHeld() && !this.isSwinging) {
+      if (input.isThrowHeld()) {
+        this.throwChargeTimer += dt;
+        if (this.throwChargeTimer >= 0.6) {
+          if (!this.hasPlayedChargeCue) {
+            audio.playSfx('power');
+            this.scene.fx.shake(0.005, 80);
+            this.hasPlayedChargeCue = true;
+          }
+          // Visual golden/cyan lightning sparks around hero
+          this.scene.fx.burst(this.x + this.facing * 12, this.y - 10, 1, [0xf2c14e, 0x7fd4ff], 40, 160, 0);
+        }
+      } else if (this.throwChargeTimer > 0) {
+        const isCharged = this.throwChargeTimer >= 0.6;
+        this.hammer.throw(this.facing, isCharged);
+        this.throwChargeTimer = 0;
+        this.hasPlayedChargeCue = false;
+      } else if (input.justThrow()) {
+        this.hammer.throw(this.facing, false);
+      }
+    } else if (!this.hammer.isHeld()) {
+      // Recall pull: pressing K while hammer is out recalls it instantly and pulls small enemies
+      if (input.justThrow()) {
+        this.hammer.recallPull();
+      }
     }
 
     // Update ongoing swing attack
@@ -288,6 +346,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
               this.swingHitEnemies.add(enemy);
               const damage = isStorm ? 2 : 1;
               enemy.takeDamage(damage, this.x);
+              this.addThunderMeter(12);
 
               this.scene.fx.hitStop(40);
               this.scene.fx.shake(0.008, 140);
@@ -325,11 +384,21 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
         });
       }
 
-      // Destroy enemy fireballs
+      // Destroy enemy fireballs & smash incoming arrows
       if (this.scene.fireballsGroup) {
         this.scene.fireballsGroup.getChildren().forEach(fb => {
           if (!fb.isDead && Phaser.Geom.Intersects.RectangleToRectangle(hitRect, fb.getBounds())) {
             fb.smash();
+          }
+        });
+      }
+
+      if (this.scene.arrowsGroup) {
+        this.scene.arrowsGroup.getChildren().forEach(arr => {
+          if (arr.active && Phaser.Geom.Intersects.RectangleToRectangle(hitRect, arr.getBounds())) {
+            audio.playSfx('hit');
+            this.scene.fx.burst(arr.x, arr.y, 6, [0x7fd4ff, 0xffffff], 90, 220, 0);
+            arr.destroy();
           }
         });
       }
@@ -354,6 +423,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.hp -= damage;
     this.invulnerableTimer = 1.1; // 1.1s invulnerability
     audio.playSfx('hurt');
+    triggerHaptic(50);
 
     this.scene.fx.shake(0.015, 250);
     this.scene.fx.burst(this.x, this.y, 12, [0xff5a5a, 0xffffff], 200, 400, 600);
@@ -393,9 +463,116 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.scene.onHeroDeath();
   }
 
+  startGroundSlam() {
+    this.isSlamming = true;
+    this.slamHitEnemies.clear();
+    this.setVelocityX(0);
+    this.setVelocityY(880);
+    audio.playSfx('swing');
+  }
+
+  performGroundSlamImpact() {
+    this.isSlamming = false;
+    this.slamGraphics.clear();
+    audio.playSfx('break');
+
+    this.scene.fx.shake(0.02, 350);
+    this.scene.fx.burst(this.x, this.y + 20, 24, [0x7fd4ff, 0xf2c14e, 0xffffff], 280, 500, -250);
+
+    // Shockwave rectangle: covers both left and right (width 200, height 50)
+    const shockRect = new Phaser.Geom.Rectangle(this.x - 100, this.y - 10, 200, 50);
+
+    // Shockwave ring visual
+    const shockCircle = this.scene.add.circle(this.x, this.y + 16, 12, 0x7fd4ff, 0.6).setDepth(23);
+    this.scene.tweens.add({
+      targets: shockCircle,
+      scaleX: 7.5,
+      scaleY: 1.5,
+      alpha: 0,
+      duration: 300,
+      ease: 'Quad.easeOut',
+      onComplete: () => shockCircle.destroy()
+    });
+
+    // Damage enemies in shockwave (bypasses frontal shields!)
+    if (this.scene.enemiesGroup) {
+      this.scene.enemiesGroup.getChildren().forEach(enemy => {
+        if (!enemy.isDead && !this.slamHitEnemies.has(enemy)) {
+          if (Phaser.Geom.Intersects.RectangleToRectangle(shockRect, enemy.getBounds())) {
+            this.slamHitEnemies.add(enemy);
+            enemy.takeDamage(3, this.x, true); // true = isSlam
+            this.addThunderMeter(18);
+          }
+        }
+      });
+    }
+
+    // Break cracked floors & secret walls
+    if (this.scene.crackedBlocksGroup) {
+      this.scene.crackedBlocksGroup.getChildren().forEach(block => {
+        if (block.active && Phaser.Geom.Intersects.RectangleToRectangle(shockRect, block.getBounds())) {
+          block.smash();
+        }
+      });
+    }
+
+    // Smash nearby crates and urns
+    if (this.scene.cratesGroup) {
+      this.scene.cratesGroup.getChildren().forEach(crate => {
+        if (!crate.broken && Phaser.Geom.Intersects.RectangleToRectangle(shockRect, crate.getBounds())) {
+          crate.smash(true);
+        }
+      });
+    }
+  }
+
+  addThunderMeter(amount) {
+    const prev = this.thunderMeter;
+    this.thunderMeter = Phaser.Math.Clamp(this.thunderMeter + amount, 0, 100);
+    if (prev < 100 && this.thunderMeter >= 100) {
+      audio.playSfx('power');
+      this.scene.fx.flashWhite(this);
+      const hud = this.scene.scene.get('HUDScene');
+      hud?.showToast('⚡ THUNDER READY! Press [L] or tap Thunder!');
+    }
+  }
+
+  useThunderStrike() {
+    this.thunderMeter = 0;
+    audio.playSfx('power');
+    this.scene.fx.flashScreen(0x7fd4ff, 100);
+    this.scene.fx.shake(0.025, 550);
+
+    const hud = this.scene.scene.get('HUDScene');
+    hud?.showToast('⚡ THUNDER WRATH! All foes struck down!');
+
+    // Strike all active enemies on the screen!
+    if (this.scene.enemiesGroup) {
+      const cam = this.scene.cameras.main;
+      const camView = cam.worldView;
+
+      this.scene.enemiesGroup.getChildren().forEach(enemy => {
+        if (!enemy.isDead && Phaser.Geom.Intersects.RectangleToRectangle(camView, enemy.getBounds())) {
+          // Lightning bolt visual down from sky
+          const bolt = this.scene.add.graphics().setDepth(30);
+          bolt.lineStyle(4, 0xffffff, 1.0);
+          bolt.beginPath();
+          bolt.moveTo(enemy.x + (Math.random() - 0.5) * 20, camView.y);
+          bolt.lineTo(enemy.x, enemy.y);
+          bolt.strokePath();
+          this.scene.time.delayedCall(120, () => bolt.destroy());
+
+          this.scene.fx.burst(enemy.x, enemy.y, 16, [0x7fd4ff, 0xffffff], 220, 450, 0);
+          enemy.takeDamage(4, enemy.x);
+        }
+      });
+    }
+  }
+
   destroy(fromScene) {
     if (this.shieldAura) this.shieldAura.destroy();
     if (this.swingGraphics) this.swingGraphics.destroy();
+    if (this.slamGraphics) this.slamGraphics.destroy();
     if (this.hammer) this.hammer.destroy();
     super.destroy(fromScene);
   }

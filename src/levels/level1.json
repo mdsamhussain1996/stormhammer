@@ -54,15 +54,26 @@
     { "type": "grunt", "x": 14, "y": 11 },
     { "type": "grunt", "x": 32, "y": 11 },
     { "type": "grunt", "x": 38, "y": 11 },
-    { "type": "grunt", "x": 57, "y": 11 },
+    { "type": "archer", "x": 65, "y": 11 },
     { "type": "grunt", "x": 73, "y": 11 },
-    { "type": "grunt", "x": 86, "y": 11 },
+    { "type": "shield_knight", "x": 86, "y": 11 },
     { "type": "grunt", "x": 94, "y": 11 },
     { "type": "bat", "x": 24, "y": 6 },
     { "type": "bat", "x": 50, "y": 5 },
     { "type": "bat", "x": 78, "y": 5 },
     { "type": "bat", "x": 101, "y": 6 },
-    { "type": "brute", "x": 103, "y": 10 }
+    { "type": "brute", "x": 45, "y": 10 },
+    { "type": "treant_boss", "x": 106, "y": 11 }
+  ],
+  "crackedBlocks": [
+    [35, 11, "heart"],
+    [74, 11, "coin"]
+  ],
+  "movingPlats": [
+    [48, 8, 52, 8, 45]
+  ],
+  "crumblingPlats": [
+    [78, 9]
   ],
   "coins": [
     [6, 7, 3],

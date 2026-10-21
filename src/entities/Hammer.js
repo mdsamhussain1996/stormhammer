@@ -32,6 +32,8 @@ export class Hammer extends Phaser.GameObjects.Container {
     this.returnSpeed = 780;
     this.throwTimer = 0;
     this.hitEnemies = new Set();
+    this.isCharged = false;
+    this.isPulling = false;
     this.setDepth(28);
 
     this.setVisible(false);
@@ -41,12 +43,15 @@ export class Hammer extends Phaser.GameObjects.Container {
     return this.state === 'held';
   }
 
-  throw(faceDirection) {
+  throw(faceDirection, charged = false) {
     if (this.state !== 'held') return;
 
     this.state = 'thrown_out';
+    this.isCharged = charged;
+    this.isPulling = false;
     this.thrownDistance = 0;
-    this.maxThrowDistance = this.hero.stormTimer > 0 ? 380 : 320;
+    this.maxThrowDistance = charged ? 560 : (this.hero.stormTimer > 0 ? 420 : 320);
+    this.throwSpeed = charged ? 850 : 700;
     this.throwTimer = 0;
     this.hitEnemies.clear();
 
@@ -54,13 +59,35 @@ export class Hammer extends Phaser.GameObjects.Container {
     this.setVisible(true);
 
     this.body.setVelocity(faceDirection * this.throwSpeed, 0);
-    audio.playSfx('throw');
+
+    if (charged) {
+      audio.playSfx('power');
+      this.scene.fx.shake(0.012, 220);
+      this.scene.fx.burst(this.x, this.y, 16, [0xf2c14e, 0x7fd4ff, 0xffffff], 200, 400, 0);
+    } else {
+      audio.playSfx('throw');
+    }
+  }
+
+  recallPull() {
+    if (this.state === 'held') return;
+    this.turnAround();
+    this.isPulling = true;
+    audio.playSfx('power');
+    this.scene.fx.burst(this.x, this.y, 8, [0x7fd4ff, 0xffffff], 120, 300, 0);
   }
 
   update(time, delta) {
     const dt = delta / 1000;
     const isStorm = this.hero.stormTimer > 0;
-    this.glow.setVisible(isStorm);
+    this.glow.setVisible(isStorm || this.isCharged);
+    if (this.isCharged) {
+      this.glow.setFillStyle(0xf2c14e, 0.65);
+      this.glow.setScale(1.3 + Math.sin(time / 80) * 0.2);
+    } else {
+      this.glow.setFillStyle(0x7fd4ff, 0.45);
+      this.glow.setScale(1.0);
+    }
 
     if (this.state === 'held') {
       this.setVisible(false);
@@ -70,8 +97,9 @@ export class Hammer extends Phaser.GameObjects.Container {
     this.setVisible(true);
     this.throwTimer += dt;
 
-    // Spin animation
-    this.sprite.rotation += dt * 26 * Math.sign(this.body.velocity.x || this.hero.facing);
+    // Spin animation (faster when charged)
+    const spinRate = this.isCharged ? 38 : 26;
+    this.sprite.rotation += dt * spinRate * Math.sign(this.body.velocity.x || this.hero.facing);
 
     // Force return after 3s to guarantee it never gets stuck
     if (this.throwTimer > 3.0 && this.state !== 'returning') {
@@ -84,6 +112,19 @@ export class Hammer extends Phaser.GameObjects.Container {
       // Check distance threshold
       if (this.thrownDistance >= this.maxThrowDistance) {
         this.turnAround();
+      }
+
+      // Check collision with cracked walls (charged throw smashes through them!)
+      if (this.scene.crackedBlocksGroup) {
+        this.scene.crackedBlocksGroup.getChildren().forEach(block => {
+          if (block.active && Phaser.Geom.Intersects.RectangleToRectangle(this.getBounds(), block.getBounds())) {
+            if (this.isCharged || isStorm) {
+              block.smash();
+            } else {
+              this.turnAround();
+            }
+          }
+        });
       }
 
       // Check collision with solid tiles
@@ -105,15 +146,29 @@ export class Hammer extends Phaser.GameObjects.Container {
       const spd = this.returnSpeed + this.throwTimer * 180;
       this.body.setVelocity(Math.cos(angle) * spd, Math.sin(angle) * spd);
 
+      // Recall pull: pull small enemies (grunts, bats) towards the hammer/hero!
+      if (this.isPulling && this.scene.enemiesGroup) {
+        this.scene.enemiesGroup.getChildren().forEach(enemy => {
+          if (!enemy.isDead && !enemy.isBoss) {
+            const eDist = Phaser.Math.Distance.Between(this.x, this.y, enemy.x, enemy.y);
+            if (eDist < 160) {
+              const pullAngle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.hero.x, this.hero.y);
+              enemy.setVelocity(Math.cos(pullAngle) * 220, -120);
+            }
+          }
+        });
+      }
+
       // Catch check
       if (dist < 28 || this.throwTimer > 4.5) {
         this.catch();
       }
     }
 
-    // Storm lightning sparks while flying
-    if (isStorm && Math.random() < 0.4) {
-      this.scene.fx.burst(this.x, this.y, 1, [0x7fd4ff, 0xffffff], 40, 200, 0);
+    // Lightning sparks while flying
+    if ((isStorm || this.isCharged) && Math.random() < 0.45) {
+      const sparkColor = this.isCharged ? 0xf2c14e : 0x7fd4ff;
+      this.scene.fx.burst(this.x, this.y, 1, [sparkColor, 0xffffff], 50, 220, 0);
     }
   }
 
@@ -124,6 +179,8 @@ export class Hammer extends Phaser.GameObjects.Container {
 
   catch() {
     this.state = 'held';
+    this.isCharged = false;
+    this.isPulling = false;
     this.body.setVelocity(0, 0);
     this.setVisible(false);
     audio.playSfx('catch');
@@ -134,16 +191,26 @@ export class Hammer extends Phaser.GameObjects.Container {
     if (this.state === 'held' || this.hitEnemies.has(enemy) || enemy.isDead) return;
 
     this.hitEnemies.add(enemy);
-    const damage = this.hero.stormTimer > 0 ? 2 : 1;
+    const damage = this.isCharged ? 3 : (this.hero.stormTimer > 0 ? 2 : 1);
     enemy.takeDamage(damage, this.x);
 
-    this.scene.fx.hitStop(40);
-    this.scene.fx.shake(0.008, 140);
+    // Charge hero thunder meter on hits
+    if (this.hero.addThunderMeter) {
+      this.hero.addThunderMeter(14);
+    }
+
+    this.scene.fx.hitStop(this.isCharged ? 65 : 40);
+    this.scene.fx.shake(this.isCharged ? 0.012 : 0.008, 160);
     audio.playSfx('hit');
 
     // Storm chain lightning
-    if (this.hero.stormTimer > 0) {
+    if (this.hero.stormTimer > 0 || this.isCharged) {
       this.scene.triggerChainLightning(enemy);
+    }
+
+    // Charged throw pierces; regular throw turns around on heavy hits
+    if (!this.isCharged && this.state === 'thrown_out') {
+      this.turnAround();
     }
   }
 }

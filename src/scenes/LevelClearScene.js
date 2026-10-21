@@ -78,13 +78,51 @@ export class LevelClearScene extends Phaser.Scene {
       }).setOrigin(0.5);
     });
 
-    // Onward button
-    const isFinalRealm = this.realm >= 3;
-    const btnText = isFinalRealm ? 'Claim Victory' : `Onward to Realm ${this.realm + 1} →`;
+    // Star Rating Display (Key found, Secrets found, No deaths)
+    const foundKey = true; // Gate reached implies key was found
+    const allSecrets = !!this.stats.allSecrets;
+    const noDeaths = !this.stats.died;
+    const starsCount = (foundKey ? 1 : 0) + (allSecrets ? 1 : 0) + (noDeaths ? 1 : 0);
 
-    const btnW = 240;
+    // Save stars
+    SaveSystem.setRealmStars(this.realm, {
+      foundKey,
+      allSecrets,
+      noDeaths
+    });
+
+    const starY = H / 2 + 50;
+    const starsContainer = this.add.container(W / 2, starY);
+    const starGoals = [
+      { achieved: foundKey, label: 'Key Found' },
+      { achieved: allSecrets, label: 'All Secrets' },
+      { achieved: noDeaths, label: 'No Deaths' }
+    ];
+
+    starGoals.forEach((sg, idx) => {
+      const sx = (idx - 1) * 110;
+      const starIcon = this.add.text(sx, -10, sg.achieved ? '★' : '☆', {
+        fontSize: '28px',
+        color: sg.achieved ? '#f2c14e' : '#555555'
+      }).setOrigin(0.5);
+
+      const subTxt = this.add.text(sx, 16, sg.label, {
+        fontFamily: "'Alegreya Sans SC', sans-serif",
+        fontSize: '11px',
+        color: sg.achieved ? '#ece6d6' : '#666666',
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
+
+      starsContainer.add([starIcon, subTxt]);
+    });
+
+    // Onward button: Goes to The Thunder Forge (or Victory if Realm 3)
+    const isFinalRealm = this.realm >= 3;
+    const btnText = isFinalRealm ? 'Claim Victory' : `Visit Thunder Forge ➔`;
+
+    const btnW = 250;
     const btnH = 46;
-    const btnY = H / 2 + 100;
+    const btnY = H / 2 + 115;
 
     const btnBg = this.add.graphics();
     btnBg.fillStyle(0x7fd4ff, 1.0);
@@ -106,14 +144,11 @@ export class LevelClearScene extends Phaser.Scene {
           score: this.score
         });
       } else {
-        this.scene.start('GameScene', {
-          realm: this.realm + 1,
-          playerState: {
-            hp: 5,
-            coins: this.coins,
-            score: this.score,
-            hasWingBoots: this.hasWingBoots
-          }
+        this.scene.start('ForgeScene', {
+          nextRealm: this.realm + 1,
+          coins: this.coins,
+          score: this.score,
+          stats: this.stats
         });
       }
     });

@@ -64,9 +64,9 @@
   "enemies": [
     { "type": "grunt", "x": 9, "y": 11 },
     { "type": "grunt", "x": 36, "y": 11 },
-    { "type": "grunt", "x": 52, "y": 11 },
+    { "type": "archer", "x": 52, "y": 11 },
     { "type": "grunt", "x": 66, "y": 11 },
-    { "type": "grunt", "x": 84, "y": 11 },
+    { "type": "shield_knight", "x": 84, "y": 11 },
     { "type": "grunt", "x": 96, "y": 11 },
     { "type": "bat", "x": 28, "y": 4 },
     { "type": "bat", "x": 59, "y": 4 },
@@ -74,7 +74,18 @@
     { "type": "caster", "x": 40, "y": 9 },
     { "type": "caster", "x": 74, "y": 5 },
     { "type": "caster", "x": 103, "y": 5 },
-    { "type": "brute", "x": 113, "y": 10 }
+    { "type": "brute", "x": 60, "y": 10 },
+    { "type": "wraith_boss", "x": 114, "y": 9 }
+  ],
+  "crackedBlocks": [
+    [41, 9, "storm"],
+    [82, 11, "coin"]
+  ],
+  "movingPlats": [
+    [60, 7, 63, 7, 50]
+  ],
+  "crumblingPlats": [
+    [91, 7]
   ],
   "coins": [
     [5, 6, 3],

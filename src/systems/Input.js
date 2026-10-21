@@ -2,6 +2,14 @@
  * Stormhammer Unified Input System
  * Supports Keyboard, Gamepad, and Mobile On-Screen Multi-Touch with >=64px hit areas.
  */
+export function triggerHaptic(duration = 35) {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    try {
+      navigator.vibrate(duration);
+    } catch (e) {}
+  }
+}
+
 export class InputSystem {
   constructor(scene) {
     this.scene = scene;
@@ -18,6 +26,8 @@ export class InputSystem {
       z: Phaser.Input.Keyboard.KeyCodes.Z,
       k: Phaser.Input.Keyboard.KeyCodes.K,
       x: Phaser.Input.Keyboard.KeyCodes.X,
+      l: Phaser.Input.Keyboard.KeyCodes.L,
+      c: Phaser.Input.Keyboard.KeyCodes.C,
       p: Phaser.Input.Keyboard.KeyCodes.P,
       esc: Phaser.Input.Keyboard.KeyCodes.ESC
     });
@@ -33,9 +43,13 @@ export class InputSystem {
       swingJustPressed: false,
       throw: false,
       throwJustPressed: false,
+      throwHeldDuration: 0,
+      thunder: false,
+      thunderJustPressed: false,
       pauseJustPressed: false
     };
 
+    this.throwHoldTimer = 0;
     this.touchButtons = [];
     this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
@@ -77,6 +91,7 @@ export class InputSystem {
 
       bg.on('pointerdown', (pointer) => {
         bg.setFillStyle(0x7fd4ff, 0.35);
+        triggerHaptic(25);
         onDown();
       });
 
@@ -93,24 +108,34 @@ export class InputSystem {
       return container;
     };
 
-    // Left & Right (bottom left)
+    // Left, Down & Right (bottom left)
     createBtn(pad + btnSize / 2, H - pad - btnSize / 2, '◀', '',
       () => { this.touchState.left = true; },
       () => { this.touchState.left = false; }
     );
 
-    createBtn(pad + btnSize * 1.7, H - pad - btnSize / 2, '▶', '',
+    createBtn(pad + btnSize * 1.5, H - pad - btnSize / 2, '▼', 'SLAM',
+      () => { this.touchState.down = true; },
+      () => { this.touchState.down = false; }
+    );
+
+    createBtn(pad + btnSize * 2.5, H - pad - btnSize / 2, '▶', '',
       () => { this.touchState.right = true; },
       () => { this.touchState.right = false; }
     );
 
-    // Actions (bottom right): Throw, Swing, Jump
-    createBtn(W - pad - btnSize * 2.7, H - pad - btnSize / 2, '🔨', 'THROW',
+    // Actions (bottom right): Thunder, Throw, Swing, Jump
+    createBtn(W - pad - btnSize * 3.8, H - pad - btnSize / 2, '⚡', 'THUNDER',
+      () => { this.touchState.thunder = true; this.touchState.thunderJustPressed = true; },
+      () => { this.touchState.thunder = false; }
+    );
+
+    createBtn(W - pad - btnSize * 2.6, H - pad - btnSize / 2, '🔨', 'THROW',
       () => { this.touchState.throw = true; this.touchState.throwJustPressed = true; },
       () => { this.touchState.throw = false; }
     );
 
-    createBtn(W - pad - btnSize * 1.5, H - pad - btnSize / 2, '⚔', 'SWING',
+    createBtn(W - pad - btnSize * 1.4, H - pad - btnSize / 2, '⚔', 'SWING',
       () => { this.touchState.swing = true; this.touchState.swingJustPressed = true; },
       () => { this.touchState.swing = false; }
     );
@@ -172,6 +197,27 @@ export class InputSystem {
     const touchThrow = this.touchState.throwJustPressed;
     this.touchState.throwJustPressed = false;
     return keyThrow || touchThrow || padThrow;
+  }
+
+  isThrowHeld() {
+    const pad = this.getGamepad();
+    const padThrow = pad && pad.buttons[1] && pad.buttons[1].value > 0.1;
+    return this.keys.k.isDown || this.keys.x.isDown || this.touchState.throw || padThrow;
+  }
+
+  justThrowReleased() {
+    const pad = this.getGamepad();
+    const keyRel = Phaser.Input.Keyboard.JustUp(this.keys.k) || Phaser.Input.Keyboard.JustUp(this.keys.x);
+    return keyRel;
+  }
+
+  justThunder() {
+    const pad = this.getGamepad();
+    const padY = pad && pad.buttons[3] && pad.buttons[3].pressed; // Y button
+    const keyThunder = Phaser.Input.Keyboard.JustDown(this.keys.l) || Phaser.Input.Keyboard.JustDown(this.keys.c);
+    const touchThunder = this.touchState.thunderJustPressed;
+    this.touchState.thunderJustPressed = false;
+    return keyThunder || touchThunder || padY;
   }
 
   justPause() {

@@ -102,6 +102,37 @@ export class HUDScene extends Phaser.Scene {
       this.scene.pause();
     });
 
+    // --- Thunder Meter Display ---
+    this.thunderBg = this.add.rectangle(16, 96, 270, 6, 0x141a24).setOrigin(0, 0.5);
+    this.thunderBar = this.add.rectangle(16, 96, 0, 6, 0x7fd4ff).setOrigin(0, 0.5);
+    this.thunderLabel = this.add.text(16, 108, '⚡ THUNDER: 0%', {
+      fontFamily: "'Alegreya Sans SC', sans-serif",
+      fontSize: '11px',
+      color: '#7fd4ff',
+      fontStyle: 'bold'
+    }).setOrigin(0, 0.5);
+
+    // --- Bottom Boss Health Bar ---
+    const H = this.scale.height;
+    this.bossBarContainer = this.add.container(W / 2, H - 34).setVisible(false);
+
+    const bossBarBg = this.add.graphics();
+    bossBarBg.fillStyle(0x0e131b, 0.9);
+    bossBarBg.fillRoundedRect(-180, -18, 360, 36, 8);
+    bossBarBg.lineStyle(1.5, 0x9d3b3b, 0.9);
+    bossBarBg.strokeRoundedRect(-180, -18, 360, 36, 8);
+
+    this.bossNameText = this.add.text(0, -7, 'BOSS', {
+      fontFamily: "'Pirata One', Georgia, serif",
+      fontSize: '18px',
+      color: '#ece6d6'
+    }).setOrigin(0.5);
+
+    this.bossInnerBg = this.add.rectangle(-160, 8, 320, 8, 0x2a1414).setOrigin(0, 0.5);
+    this.bossInnerBar = this.add.rectangle(-160, 8, 320, 8, 0xde3b3b).setOrigin(0, 0.5);
+
+    this.bossBarContainer.add([bossBarBg, this.bossNameText, this.bossInnerBg, this.bossInnerBar]);
+
     // --- Center Toast Banner ---
     this.toastContainer = this.add.container(W / 2, 100).setAlpha(0);
     this.toastBg = this.add.graphics();
@@ -244,7 +275,29 @@ export class HUDScene extends Phaser.Scene {
       this.aegisBadge.container.setVisible(false);
     }
 
-    this.wingsBadge.container.setVisible(hero.hasWingBoots);
+    // Thunder Meter Bar
+    const thunderPct = Math.floor(hero.thunderMeter || 0);
+    this.thunderBar.setSize(270 * (thunderPct / 100), 6);
+    if (thunderPct >= 100) {
+      this.thunderLabel.setText('⚡ THUNDER READY! [L]');
+      this.thunderLabel.setColor('#f2c14e');
+      this.thunderBar.setFillStyle(0xf2c14e);
+    } else {
+      this.thunderLabel.setText(`⚡ THUNDER: ${thunderPct}%`);
+      this.thunderLabel.setColor('#7fd4ff');
+      this.thunderBar.setFillStyle(0x7fd4ff);
+    }
+
+    // Boss Health Bar (shows when boss arena entered)
+    if (game.activeBoss && !game.activeBoss.isDead && game.activeBoss.isEngaged) {
+      this.bossBarContainer.setVisible(true);
+      const boss = game.activeBoss;
+      this.bossNameText.setText(`${boss.bossName.toUpperCase()} [PHASE ${boss.phase || 1}]`);
+      const hpFrac = Phaser.Math.Clamp(boss.hp / boss.maxHp, 0, 1);
+      this.bossInnerBar.setSize(320 * hpFrac, 8);
+    } else {
+      this.bossBarContainer.setVisible(false);
+    }
 
     // Realm info & Gate progress
     if (game.levelData) {
