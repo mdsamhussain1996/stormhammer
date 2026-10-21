@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>STORMHAMMER — 2D Action Platformer</title>
+  <meta name="description" content="A side-scrolling 2D Norse-inspired action platformer built with Phaser 3. Explore gothic halls, enchanted twilight forests, and burning fortresses with the mighty Thunder Hammer." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya+Sans+SC:wght@500;700;800&family=Pirata+One&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090c10;
+      --storm: #7fd4ff;
+      --gold: #f2c14e;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg);
+      font-family: 'Alegreya Sans SC', 'Trebuchet MS', system-ui, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      touch-action: none;
+    }
+    #game-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+    canvas {
+      display: block;
+      box-shadow: 0 0 35px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(127, 212, 255, 0.15);
+      border-radius: 4px;
+    }
+    /* Portrait warning for mobile */
+    #orientation-warning {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #090c10;
+      color: #ece6d6;
+      z-index: 999999;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 24px;
+    }
+    #orientation-warning .icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      animation: rotate-hint 2s infinite ease-in-out;
+    }
+    #orientation-warning h2 {
+      font-family: 'Pirata One', serif;
+      font-size: 32px;
+      color: var(--gold);
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    #orientation-warning p {
+      font-size: 16px;
+      color: #98a0ae;
+    }
+    @keyframes rotate-hint {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(-90deg); }
+    }
+    @media screen and (orientation: portrait) and (max-width: 820px) {
+      #orientation-warning {
+        display: flex;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="orientation-warning">
+    <div class="icon">📱 ↷</div>
+    <h2>Rotate Device</h2>
+    <p>Please rotate your phone to landscape mode to play Stormhammer.</p>
+  </div>
+  <div id="game-container"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
