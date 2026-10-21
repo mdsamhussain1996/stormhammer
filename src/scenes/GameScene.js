@@ -109,11 +109,20 @@ export class GameScene extends Phaser.Scene {
     // 8. Collisions & Overlaps
     this.setupCollisions();
 
-    // 9. Camera setup
+    // 9. Camera setup: deadzone + look-ahead in facing direction + smooth follow
     this.cameras.main.setBounds(0, 0, this.worldWidthPx, this.worldHeightPx);
-    this.cameras.main.startFollow(this.hero, true, 0.08, 0.08, 0, -20);
+    this.cameras.main.setDeadzone(90, 50);
+    this.cameras.main.startFollow(this.hero, true, 0.08, 0.08, 0, -10);
 
-    // 10. Launch Parallel HUD
+    // 10. Lava lighting upward glow in Fortress realm
+    if (this.theme === 'fortress') {
+      const lavaLight = this.add.graphics().setDepth(18);
+      lavaLight.fillGradientStyle(0x000000, 0x000000, 0xff7a2a, 0xff7a2a, 0, 0, 0.35, 0.35);
+      lavaLight.fillRect(0, this.worldHeightPx - 100, this.worldWidthPx, 100);
+      lavaLight.setBlendMode(Phaser.BlendModes.ADD);
+    }
+
+    // 11. Launch Parallel HUD
     this.scene.launch('HUDScene');
 
     // Display realm entrance toast
@@ -416,8 +425,12 @@ export class GameScene extends Phaser.Scene {
       this.levelClear();
     }
 
-    // Update FX & Parallax ambient drift
-    this.fx.update(time, delta);
+    // Camera look-ahead in facing direction
+    const targetOffset = -this.hero.facing * 50;
+    this.cameras.main.followOffset.x = Phaser.Math.Linear(this.cameras.main.followOffset.x, targetOffset, 0.05);
+
+    // Update FX (with hero for verlet cape simulation) & Parallax ambient drift
+    this.fx.update(time, delta, this.hero);
     this.parallax.update(time, delta);
   }
 

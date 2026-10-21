@@ -100,8 +100,16 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       this.canDoubleJump = this.hasWingBoots;
 
       if (!this.wasOnGround) {
-        // Landing dust puff
+        // Landing dust puff & squash animation
         this.scene.fx.dustPuff(this.x, this.y + 24, 5);
+        this.setScale(1.22, 0.82);
+        this.scene.tweens.add({
+          targets: this,
+          scaleX: 1.0,
+          scaleY: 1.0,
+          duration: 160,
+          ease: 'Quad.easeOut'
+        });
       }
 
       // Record safe checkpoint if standing on solid ground
@@ -156,6 +164,16 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
         this.jumpBuffer = 0;
         audio.playSfx('jump');
         this.scene.fx.dustPuff(this.x, this.y + 24, 6);
+
+        // Jump stretch
+        this.setScale(0.86, 1.18);
+        this.scene.tweens.add({
+          targets: this,
+          scaleX: 1.0,
+          scaleY: 1.0,
+          duration: 160,
+          ease: 'Quad.easeOut'
+        });
       } else if (this.canDoubleJump) {
         // Wing boots double jump
         this.setVelocityY(-this.jumpForce * 0.9);
@@ -163,6 +181,15 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
         this.jumpBuffer = 0;
         audio.playSfx('jump');
         this.scene.fx.burst(this.x, this.y + 20, 8, [0xffffff, 0xcfe9ff], 140, 350, 200);
+
+        this.setScale(0.86, 1.18);
+        this.scene.tweens.add({
+          targets: this,
+          scaleX: 1.0,
+          scaleY: 1.0,
+          duration: 160,
+          ease: 'Quad.easeOut'
+        });
       }
     }
 

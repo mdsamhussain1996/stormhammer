@@ -51,6 +51,14 @@ export class SoundEngine {
     return this.muted;
   }
 
+  duckBgm(duck = true) {
+    if (!this.ctx || !this.bgmGain) return;
+    const t = this.ctx.currentTime;
+    const targetVol = duck ? 0.08 : 0.35;
+    this.bgmGain.gain.cancelScheduledValues(t);
+    this.bgmGain.gain.linearRampToValueAtTime(targetVol, t + 0.2);
+  }
+
   isMuted() {
     return this.muted;
   }

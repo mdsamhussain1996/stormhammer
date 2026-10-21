@@ -1,38 +1,78 @@
 /**
  * Stormhammer FX & Juice System
- * Handles hit-stop freeze frames, camera shakes, spark explosions, crate splinters,
- * chain lightning arcs, dust puffs, and ambient realm particles.
+ * Handles hit-stop freeze frames (50-80ms), camera shake scaled to damage,
+ * zoom-punch on brute kills, 1-frame lightning screen flashes,
+ * verlet cape physics, additive lighting/torch glows, and weather particle systems.
  */
 export class FXSystem {
   constructor(scene) {
     this.scene = scene;
     this.ambientParticles = [];
     this.lightningGraphics = scene.add.graphics().setDepth(50);
+    this.capeGraphics = scene.add.graphics().setDepth(24);
+    this.flashGraphics = scene.add.graphics().setDepth(100).setScrollFactor(0);
     this.activeBolts = [];
+
+    // Verlet Cape state (4 linked points)
+    this.capeNodes = [
+      { x: 0, y: 0, oldX: 0, oldY: 0 },
+      { x: 0, y: 0, oldX: 0, oldY: 0 },
+      { x: 0, y: 0, oldX: 0, oldY: 0 },
+      { x: 0, y: 0, oldX: 0, oldY: 0 }
+    ];
+    this.capeSegmentLength = 7;
   }
 
-  // --- Hit Stop Frame Freeze ---
-  hitStop(durationMs = 40) {
+  // --- Hit Stop Frame Freeze (50–80 ms) ---
+  hitStop(durationMs = 65) {
     if (this.scene.physics.world.isPaused) return;
     this.scene.physics.world.isPaused = true;
     this.scene.time.delayedCall(durationMs, () => {
-      if (this.scene && this.scene.physics && this.scene.physics.world) {
+      if (this.scene?.physics?.world) {
         this.scene.physics.world.isPaused = false;
       }
     });
   }
 
-  // --- Screen Shake ---
+  // --- Screen Shake Scaled to Damage ---
   shake(intensity = 0.012, duration = 180) {
     this.scene.cameras.main.shake(duration, intensity);
   }
 
+  // --- Zoom Punch on Brute Kills ---
+  zoomPunch(targetZoom = 1.08, duration = 120) {
+    const cam = this.scene.cameras.main;
+    this.scene.tweens.add({
+      targets: cam,
+      zoom: targetZoom,
+      duration: duration,
+      yoyo: true,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        cam.setZoom(1.0);
+      }
+    });
+  }
+
+  // --- Lightning Screen Flash (1-2 frames) ---
+  flashScreen(color = 0xffffff, duration = 60) {
+    const W = this.scene.scale.width;
+    const H = this.scene.scale.height;
+    this.flashGraphics.clear();
+    this.flashGraphics.fillStyle(color, 0.45);
+    this.flashGraphics.fillRect(0, 0, W, H);
+
+    this.scene.time.delayedCall(duration, () => {
+      this.flashGraphics.clear();
+    });
+  }
+
   // --- Flash Sprite White ---
   flashWhite(sprite, duration = 120) {
-    if (!sprite || !sprite.setTintFill) return;
+    if (!sprite?.setTintFill) return;
     sprite.setTintFill(0xffffff);
     this.scene.time.delayedCall(duration, () => {
-      if (sprite && sprite.clearTint) {
+      if (sprite?.clearTint) {
         sprite.clearTint();
       }
     });
@@ -50,7 +90,6 @@ export class FXSystem {
 
       this.scene.physics.add.existing(p);
       p.body.setVelocity(Math.cos(angle) * spd, Math.sin(angle) * spd - speed * 0.3);
-      p.body.setGravityY(gravity);
 
       this.scene.tweens.add({
         targets: p,
@@ -62,7 +101,7 @@ export class FXSystem {
     }
   }
 
-  // --- Dust Puffs on Jump / Land ---
+  // --- Dust Puffs on Run / Jump / Land ---
   dustPuff(x, y, count = 6) {
     for (let i = 0; i < count; i++) {
       const p = this.scene.add.circle(x, y, Phaser.Math.Between(2, 4), 0xdcd2be, 0.6)
@@ -71,7 +110,6 @@ export class FXSystem {
       const vx = Phaser.Math.FloatBetween(-60, 60);
       const vy = Phaser.Math.FloatBetween(-30, -70);
       p.body.setVelocity(vx, vy);
-      p.body.setGravityY(100);
 
       this.scene.tweens.add({
         targets: p,
@@ -83,7 +121,7 @@ export class FXSystem {
     }
   }
 
-  // --- Chain Lightning Arc ---
+  // --- Chain Lightning Arc & Screen Flash ---
   chainLightning(x1, y1, x2, y2, duration = 250) {
     const segments = 8;
     const points = [{ x: x1, y: y1 }];
@@ -98,46 +136,66 @@ export class FXSystem {
 
     const bolt = { points, remaining: duration, total: duration };
     this.activeBolts.push(bolt);
+
+    // 1-frame screen flash
+    this.flashScreen(0x7fd4ff, 50);
   }
 
   // --- Ambient Weather / Particles ---
   initAmbient(theme, width, height) {
     this.ambientTheme = theme;
     this.ambientTimer = this.scene.time.addEvent({
-      delay: theme === 'fortress' ? 90 : 250,
+      delay: theme === 'fortress' ? 80 : 160,
       loop: true,
       callback: () => {
         const cam = this.scene.cameras.main;
         const x = Phaser.Math.FloatBetween(cam.scrollX - 50, cam.scrollX + cam.width + 50);
 
         if (theme === 'ember') {
+          // Rising embers + ash
           const y = cam.scrollY + cam.height + 10;
           const ember = this.scene.add.rectangle(x, y, Phaser.Math.Between(2, 4), Phaser.Math.Between(2, 4), 0xff8a3d, 0.8)
             .setDepth(60);
           this.scene.physics.add.existing(ember);
-          ember.body.setVelocity(Phaser.Math.FloatBetween(-30, 30), Phaser.Math.FloatBetween(-80, -160));
+          ember.body.setVelocity(Phaser.Math.FloatBetween(-30, 30), Phaser.Math.FloatBetween(-80, -180));
           this.scene.tweens.add({
             targets: ember,
             alpha: 0,
-            duration: Phaser.Math.Between(2000, 3500),
+            duration: Phaser.Math.Between(2000, 3200),
             onComplete: () => ember.destroy()
           });
         } else if (theme === 'leaf') {
-          const y = cam.scrollY - 10;
-          const leaf = this.scene.add.ellipse(x, y, 6, 3, Math.random() < 0.5 ? 0x7aa85a : 0xd9a35a, 0.75)
-            .setDepth(60);
-          this.scene.physics.add.existing(leaf);
-          leaf.body.setVelocity(Phaser.Math.FloatBetween(30, 60), Phaser.Math.FloatBetween(40, 80));
-          this.scene.tweens.add({
-            targets: leaf,
-            rotation: Math.PI * 4,
-            alpha: 0,
-            duration: Phaser.Math.Between(3000, 5000),
-            onComplete: () => leaf.destroy()
-          });
+          // Falling leaves & Fireflies
+          if (Math.random() < 0.35) {
+            // Glowing Firefly (yellow-green bobbing light with additive blend)
+            const fy = Phaser.Math.FloatBetween(cam.scrollY + 50, cam.scrollY + cam.height - 50);
+            const firefly = this.scene.add.circle(x, fy, 2, 0xd4ff70, 0.9)
+              .setBlendMode(Phaser.BlendModes.ADD)
+              .setDepth(65);
+            this.scene.tweens.add({
+              targets: firefly,
+              x: x + Phaser.Math.FloatBetween(-40, 40),
+              y: fy + Phaser.Math.FloatBetween(-20, 20),
+              alpha: { from: 0.3, to: 1.0 },
+              yoyo: true,
+              repeat: -1,
+              duration: 800
+            });
+            this.scene.time.delayedCall(4000, () => firefly.destroy());
+          } else {
+            // Rain droplet / leaf
+            const y = cam.scrollY - 10;
+            const drop = this.scene.add.rectangle(x, y, 1.5, 8, 0x8ab4d4, 0.5)
+              .setDepth(60);
+            this.scene.physics.add.existing(drop);
+            drop.body.setVelocity(40, 450);
+            this.scene.time.delayedCall(1200, () => drop.destroy());
+          }
         } else if (theme === 'dust') {
+          // Castle dust motes catching window light
           const y = Phaser.Math.FloatBetween(cam.scrollY, cam.scrollY + cam.height);
-          const mote = this.scene.add.circle(x, y, 1.5, 0xc8e6d2, 0.5)
+          const mote = this.scene.add.circle(x, y, 1.5, 0xc8e6d2, 0.55)
+            .setBlendMode(Phaser.BlendModes.ADD)
             .setDepth(60);
           this.scene.physics.add.existing(mote);
           mote.body.setVelocity(Phaser.Math.FloatBetween(-15, 15), Phaser.Math.FloatBetween(-10, -25));
@@ -152,7 +210,74 @@ export class FXSystem {
     });
   }
 
-  update(time, delta) {
+  // --- Verlet Rope Cape Simulation ---
+  updateCape(hero) {
+    if (!hero || !hero.active) return;
+    this.capeGraphics.clear();
+
+    const anchorX = hero.x - hero.facing * 6;
+    const anchorY = hero.y - 12;
+
+    // Anchor first point
+    this.capeNodes[0].x = anchorX;
+    this.capeNodes[0].y = anchorY;
+
+    // Verlet integration for points 1-3
+    const gravityY = 0.35;
+    const windX = -hero.body.velocity.x * 0.02;
+
+    for (let i = 1; i < this.capeNodes.length; i++) {
+      const p = this.capeNodes[i];
+      const vx = (p.x - p.oldX) * 0.85 + windX;
+      const vy = (p.y - p.oldY) * 0.85 + gravityY;
+
+      p.oldX = p.x;
+      p.oldY = p.y;
+      p.x += vx;
+      p.y += vy;
+    }
+
+    // Constraint relaxation (keep segments at capeSegmentLength)
+    for (let iter = 0; iter < 4; iter++) {
+      for (let i = 0; i < this.capeNodes.length - 1; i++) {
+        const p1 = this.capeNodes[i];
+        const p2 = this.capeNodes[i + 1];
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        const diff = (dist - this.capeSegmentLength) / dist;
+
+        if (i === 0) {
+          // Only move p2
+          p2.x -= dx * diff;
+          p2.y -= dy * diff;
+        } else {
+          p1.x += dx * diff * 0.5;
+          p1.y += dy * diff * 0.5;
+          p2.x -= dx * diff * 0.5;
+          p2.y -= dy * diff * 0.5;
+        }
+      }
+    }
+
+    // Render trailing cape ribbon with smooth curve
+    this.capeGraphics.fillStyle(0xa8323b, 0.85);
+    this.capeGraphics.beginPath();
+    this.capeGraphics.moveTo(this.capeNodes[0].x, this.capeNodes[0].y - 4);
+    for (let i = 1; i < this.capeNodes.length; i++) {
+      this.capeGraphics.lineTo(this.capeNodes[i].x, this.capeNodes[i].y);
+    }
+    this.capeGraphics.lineTo(this.capeNodes[this.capeNodes.length - 1].x, this.capeNodes[this.capeNodes.length - 1].y + 6);
+    this.capeGraphics.lineTo(this.capeNodes[0].x, this.capeNodes[0].y + 4);
+    this.capeGraphics.closePath();
+    this.capeGraphics.fillPath();
+  }
+
+  update(time, delta, hero) {
+    if (hero) {
+      this.updateCape(hero);
+    }
+
     this.lightningGraphics.clear();
     for (let i = this.activeBolts.length - 1; i >= 0; i--) {
       const b = this.activeBolts[i];
@@ -187,5 +312,7 @@ export class FXSystem {
       this.ambientTimer.remove();
     }
     this.lightningGraphics.destroy();
+    this.capeGraphics.destroy();
+    this.flashGraphics.destroy();
   }
 }

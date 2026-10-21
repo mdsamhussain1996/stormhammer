@@ -188,7 +188,8 @@ export class Brute extends Phaser.Physics.Arcade.Sprite {
     }
 
     this.scene.fx.burst(this.x, this.y, 24, [0x6b5a4a, 0x8a7560, 0xff5a5a, 0xffffff], 280, 800, 700);
-    this.scene.fx.shake(0.015, 300);
+    this.scene.fx.shake(0.018, 300);
+    this.scene.fx.zoomPunch(1.08, 140); // Brief zoom-punch impact on mini-boss kill
 
     // Always drops Heart or Storm
     const dropType = Math.random() < 0.5 ? 'heart' : 'storm';

@@ -13,6 +13,9 @@ export class PauseScene extends Phaser.Scene {
     const W = this.scale.width;
     const H = this.scale.height;
 
+    // Duck BGM during pause
+    audio.duckBgm(true);
+
     // Dark backdrop overlay
     const overlay = this.add.graphics();
     overlay.fillStyle(0x080a10, 0.82);
@@ -74,6 +77,7 @@ export class PauseScene extends Phaser.Scene {
   }
 
   resumeGame() {
+    audio.duckBgm(false);
     this.scene.resume('GameScene');
     this.scene.resume('HUDScene');
     this.scene.stop();
