@@ -171,6 +171,10 @@ export class HUDScene extends Phaser.Scene {
   }
 
   showToast(msg, duration = 2400) {
+    if (!this.toastText || !this.toastBg || !this.toastContainer) {
+      this.time?.delayedCall(150, () => this.showToast(msg, duration));
+      return;
+    }
     if (this.toastHideTimer) this.toastHideTimer.remove();
 
     this.toastText.setText(msg);

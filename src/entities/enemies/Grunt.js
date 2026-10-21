@@ -23,7 +23,6 @@ export class Grunt extends Phaser.Physics.Arcade.Sprite {
 
     this.body.setSize(26, 36);
     this.body.setOffset(3, 4);
-    this.body.setGravityY(1600);
     this.setDepth(20);
 
     this.setFlipX(this.facing < 0);

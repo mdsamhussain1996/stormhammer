@@ -27,7 +27,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
     // Movement tuning
     this.runSpeed = 270;
-    this.jumpForce = 750;
+    this.jumpForce = 760; // Apex ≈ 3.6 tiles (144px) with world gravity 2000
     this.facing = 1; // 1 = right, -1 = left
 
     // Jump feel
@@ -63,7 +63,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
     this.body.setSize(26, 46);
     this.body.setOffset(19, 18);
-    this.body.setGravityY(2000);
+    // Rely exclusively on world gravity (2000) to avoid double gravity
     this.body.setMaxVelocity(350, 950);
     this.setDepth(25);
   }

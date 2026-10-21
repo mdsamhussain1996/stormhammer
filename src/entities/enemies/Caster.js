@@ -26,7 +26,6 @@ export class Caster extends Phaser.Physics.Arcade.Sprite {
     this.body.setSize(26, 42);
     this.body.setOffset(3, 4);
     this.body.setImmovable(true);
-    this.body.setGravityY(1600);
     this.setDepth(20);
 
     // Glowing charging orb

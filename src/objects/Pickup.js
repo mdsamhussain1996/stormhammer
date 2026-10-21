@@ -16,7 +16,6 @@ export class Pickup extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     this.setDepth(25);
-    this.body.setGravityY(700);
     this.body.setBounce(0.4);
     this.body.setCollideWorldBounds(true);
 

@@ -26,7 +26,6 @@ export class Brute extends Phaser.Physics.Arcade.Sprite {
 
     this.body.setSize(44, 52);
     this.body.setOffset(6, 6);
-    this.body.setGravityY(1800);
     this.setDepth(22);
 
     // HP Bar Graphics

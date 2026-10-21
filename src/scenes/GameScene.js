@@ -17,6 +17,7 @@ import { FXSystem } from '../systems/FX.js';
 import { ParallaxSystem } from '../systems/Parallax.js';
 import { audio } from '../systems/Audio.js';
 import { SaveSystem } from '../systems/Save.js';
+import { validateLevelReachability } from '../levels/validateLevels.js';
 
 /**
  * GameScene — Core Platformer Gameplay
@@ -43,6 +44,11 @@ export class GameScene extends Phaser.Scene {
     const TS = this.levelData.tileSize;
     this.worldWidthPx = cols * TS;
     this.worldHeightPx = rows * TS;
+
+    // Dev-only reachability verification
+    if (import.meta.env.DEV) {
+      validateLevelReachability(this.levelData);
+    }
 
     // Set Arcade Physics world bounds
     this.physics.world.setBounds(0, 0, this.worldWidthPx, this.worldHeightPx + 100);
