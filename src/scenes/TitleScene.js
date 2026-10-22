@@ -59,11 +59,14 @@ export class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // --- Controls Box ---
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const boxH = isTouchDevice ? 136 : 110;
+
     const ctrlBg = this.add.graphics();
     ctrlBg.fillStyle(0x141a24, 0.8);
-    ctrlBg.fillRoundedRect(W / 2 - 270, 178, 540, 110, 8);
+    ctrlBg.fillRoundedRect(W / 2 - 270, 178, 540, boxH, 8);
     ctrlBg.lineStyle(1.5, 0x2a3342, 0.8);
-    ctrlBg.strokeRoundedRect(W / 2 - 270, 178, 540, 110, 8);
+    ctrlBg.strokeRoundedRect(W / 2 - 270, 178, 540, boxH, 8);
 
     const controls = [
       ['Move', '← → / A D'],
@@ -94,8 +97,17 @@ export class TitleScene extends Phaser.Scene {
       }).setOrigin(1, 0);
     });
 
+    if (isTouchDevice) {
+      this.add.text(W / 2, 297, 'Touch: ◀ ▶ move · ▼ slam · ▲ jump · ⚔ swing · 🔨 throw · ⚡ thunder · ‖ pause', {
+        fontFamily: "'Alegreya Sans SC', sans-serif",
+        fontSize: '13px',
+        color: '#7fd4ff',
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
+    }
+
     // --- Power-ups Legend Chips ---
-    const chipsY = 308;
+    const chipsY = isTouchDevice ? 332 : 308;
     const chips = [
       { color: 0xff5a6a, label: 'Heart' },
       { color: 0x7fd4ff, label: 'Storm · chain lightning' },
@@ -116,29 +128,30 @@ export class TitleScene extends Phaser.Scene {
 
     // --- Action Buttons ---
     const highestRealm = SaveSystem.getHighestRealm();
+    const btnY = isTouchDevice ? 384 : 370;
 
     if (highestRealm > 1) {
       // Continue Button
-      this.createMenuButton(W / 2 - 110, 370, `Continue (Realm ${highestRealm})`, () => {
+      this.createMenuButton(W / 2 - 110, btnY, `Continue (Realm ${highestRealm})`, () => {
         audio.playSfx('catch');
         this.scene.start('GameScene', { realm: highestRealm });
       });
 
       // New Game Button
-      this.createMenuButton(W / 2 + 110, 370, 'New Game', () => {
+      this.createMenuButton(W / 2 + 110, btnY, 'New Game', () => {
         audio.playSfx('catch');
         this.scene.start('GameScene', { realm: 1 });
       });
     } else {
       // Begin Button
-      this.createMenuButton(W / 2, 370, 'Begin Journey', () => {
+      this.createMenuButton(W / 2, btnY, 'Begin Journey', () => {
         audio.playSfx('catch');
         this.scene.start('GameScene', { realm: 1 });
       });
     }
 
     // Portfolio Link Button
-    const portBtn = this.add.text(W / 2, 420, '🌐 Creator Portfolio: mdsamhussain1996.github.io', {
+    const portBtn = this.add.text(W / 2, isTouchDevice ? 434 : 420, '🌐 Creator Portfolio: mdsamhussain1996.github.io', {
       fontFamily: "'Alegreya Sans SC', sans-serif",
       fontSize: '15px',
       color: '#7fd4ff',

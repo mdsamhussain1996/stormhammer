@@ -251,7 +251,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
           // Visual golden/cyan lightning sparks around hero
           this.scene.fx.burst(this.x + this.facing * 12, this.y - 10, 1, [0xf2c14e, 0x7fd4ff], 40, 160, 0);
         }
-      } else if (this.throwChargeTimer > 0) {
+      } else if (this.throwChargeTimer > 0 || input.justThrowReleased()) {
         const isCharged = this.throwChargeTimer >= 0.6;
         this.hammer.throw(this.facing, isCharged);
         this.throwChargeTimer = 0;

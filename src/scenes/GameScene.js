@@ -157,9 +157,14 @@ export class GameScene extends Phaser.Scene {
     // 11. Launch Parallel HUD
     this.scene.launch('HUDScene');
 
-    // Display realm entrance toast
+    // Ensure game canvas has focus so keyboard input is immediate
+    if (this.game.canvas && this.game.canvas.focus) {
+      this.game.canvas.focus();
+    }
+
+    // Display realm entrance toast (keep short: <= 1s)
     const hud = this.scene.get('HUDScene');
-    hud?.showToast(`Realm ${this.currentRealm} · ${this.levelData.name}`);
+    hud?.showToast(`Realm ${this.currentRealm} · ${this.levelData.name}`, 1000);
   }
 
   buildLevelGeometry(cols, rows, TS) {
