@@ -33,7 +33,8 @@ const config = {
     }
   },
   input: {
-    gamepad: true
+    gamepad: true,
+    activePointers: 5
   },
   fps: {
     target: 60,

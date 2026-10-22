@@ -63,50 +63,62 @@ export class InputSystem {
     const H = this.scene.scale.height;
     const btnSize = 68;
     const pad = 24;
+    const gap = btnSize + 14; // centre-to-centre spacing so buttons never overlap
 
+    // Buttons are drawn with scrollFactor 0, but hit-testing is done manually
+    // against every active pointer in screen (game) coordinates. This avoids
+    // Phaser's camera-dependent hit areas (camera scroll / zoom-punch) and
+    // supports true multi-touch (e.g. hold Right + tap Jump).
+    this.touchZones = [];
     const createBtn = (x, y, label, sub, onDown, onUp) => {
       const container = this.scene.add.container(x, y).setScrollFactor(0).setDepth(9999);
-
       const bg = this.scene.add.circle(0, 0, btnSize / 2, 0x141a24, 0.6)
-        .setStrokeStyle(2, 0x7fd4ff, 0.5)
-        .setInteractive(new Phaser.Geom.Circle(0, 0, btnSize / 2), Phaser.Geom.Circle.Contains);
-
+        .setStrokeStyle(2, 0x7fd4ff, 0.5);
       const text = this.scene.add.text(0, sub ? -8 : 0, label, {
         fontFamily: "'Alegreya Sans SC', sans-serif",
         fontSize: '22px',
         color: '#ece6d6',
         fontStyle: 'bold'
       }).setOrigin(0.5);
-
+      const children = [bg, text];
       if (sub) {
-        this.scene.add.text(0, 12, sub, {
+        children.push(this.scene.add.text(0, 12, sub, {
           fontFamily: "'Alegreya Sans SC', sans-serif",
           fontSize: '11px',
           color: '#7fd4ff',
           fontStyle: 'bold'
-        }).setOrigin(0.5);
+        }).setOrigin(0.5));
       }
-
-      container.add([bg, text]);
-
-      bg.on('pointerdown', (pointer) => {
-        bg.setFillStyle(0x7fd4ff, 0.35);
-        triggerHaptic(25);
-        onDown();
-      });
-
-      const release = () => {
-        bg.setFillStyle(0x141a24, 0.6);
-        onUp();
-      };
-
-      bg.on('pointerup', release);
-      bg.on('pointerout', release);
-      bg.on('pointercancel', release);
-
+      children.forEach(c => c.setScrollFactor(0));
+      container.add(children);
+      this.touchZones.push({ x, y, r: btnSize / 2 + 6, bg, onDown, onUp, pressed: false });
       this.touchButtons.push(container);
       return container;
     };
+
+    // Allow up to 4 simultaneous fingers
+    const im = this.scene.input;
+    while (im.manager.pointersTotal < 5) im.addPointer(1);
+
+    this._pollTouch = () => {
+      const pointers = im.manager.pointers;
+      for (const z of this.touchZones) {
+        let down = false;
+        for (const ptr of pointers) {
+          if (ptr.isDown) {
+            const dx = ptr.x - z.x, dy = ptr.y - z.y;
+            if (dx * dx + dy * dy <= z.r * z.r) { down = true; break; }
+          }
+        }
+        if (down && !z.pressed) {
+          z.pressed = true; z.bg.setFillStyle(0x7fd4ff, 0.35); triggerHaptic(25); z.onDown();
+        } else if (!down && z.pressed) {
+          z.pressed = false; z.bg.setFillStyle(0x141a24, 0.6); z.onUp();
+        }
+      }
+    };
+    this.scene.events.on('preupdate', this._pollTouch);
+    this.scene.events.once('shutdown', () => this.scene.events.off('preupdate', this._pollTouch));
 
     // Left, Down & Right (bottom left)
     createBtn(pad + btnSize / 2, H - pad - btnSize / 2, '◀', '',
@@ -114,28 +126,28 @@ export class InputSystem {
       () => { this.touchState.left = false; }
     );
 
-    createBtn(pad + btnSize * 1.5, H - pad - btnSize / 2, '▼', 'SLAM',
+    createBtn(pad + btnSize / 2 + gap, H - pad - btnSize / 2, '▼', 'SLAM',
       () => { this.touchState.down = true; },
       () => { this.touchState.down = false; }
     );
 
-    createBtn(pad + btnSize * 2.5, H - pad - btnSize / 2, '▶', '',
+    createBtn(pad + btnSize / 2 + gap * 2, H - pad - btnSize / 2, '▶', '',
       () => { this.touchState.right = true; },
       () => { this.touchState.right = false; }
     );
 
     // Actions (bottom right): Thunder, Throw, Swing, Jump
-    createBtn(W - pad - btnSize * 3.8, H - pad - btnSize / 2, '⚡', 'THUNDER',
+    createBtn(W - pad - btnSize / 2 - gap * 3, H - pad - btnSize / 2, '⚡', 'THUNDER',
       () => { this.touchState.thunder = true; this.touchState.thunderJustPressed = true; },
       () => { this.touchState.thunder = false; }
     );
 
-    createBtn(W - pad - btnSize * 2.6, H - pad - btnSize / 2, '🔨', 'THROW',
+    createBtn(W - pad - btnSize / 2 - gap * 2, H - pad - btnSize / 2, '🔨', 'THROW',
       () => { this.touchState.throw = true; this.touchState.throwJustPressed = true; },
       () => { this.touchState.throw = false; }
     );
 
-    createBtn(W - pad - btnSize * 1.4, H - pad - btnSize / 2, '⚔', 'SWING',
+    createBtn(W - pad - btnSize / 2 - gap, H - pad - btnSize / 2, '⚔', 'SWING',
       () => { this.touchState.swing = true; this.touchState.swingJustPressed = true; },
       () => { this.touchState.swing = false; }
     );
@@ -235,6 +247,7 @@ export class InputSystem {
   }
 
   destroy() {
+    if (this._pollTouch) this.scene.events.off('preupdate', this._pollTouch);
     this.touchButtons.forEach(btn => btn.destroy());
     this.touchButtons = [];
   }
