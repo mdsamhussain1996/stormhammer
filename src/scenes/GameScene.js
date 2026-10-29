@@ -41,6 +41,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    this.hasLevelCleared = false;
+    this.hasHeroDied = false;
+
     // 1. Select level JSON
     const levelMap = { 1: level1Data, 2: level2Data, 3: level3Data };
     this.levelData = levelMap[this.currentRealm] || level1Data;
@@ -118,9 +121,10 @@ export class GameScene extends Phaser.Scene {
 
     // Restore inherited player state if continuing
     if (this.inheritedPlayerState) {
-      this.hero.hp = Math.min(this.hero.maxHp, this.inheritedPlayerState.hp || 5);
+      this.hero.hp = Math.min(this.hero.maxHp, this.inheritedPlayerState.hp != null ? this.inheritedPlayerState.hp : 5);
       this.hero.coins = this.inheritedPlayerState.coins || 0;
       this.hero.score = this.inheritedPlayerState.score || 0;
+      this.hero.kills = this.inheritedPlayerState.kills || 0;
       this.hero.hasWingBoots = !!this.inheritedPlayerState.hasWingBoots;
     }
 
@@ -421,6 +425,11 @@ export class GameScene extends Phaser.Scene {
       if (cp.stepOn) cp.stepOn();
     });
 
+    // Hero vs closed Gate barrier (removed when the gate opens)
+    if (this.gate && this.gate.barrier) {
+      this.gateCollider = this.physics.add.collider(this.hero, this.gate.barrier);
+    }
+
     // Hero vs Crates (solid)
     this.physics.add.collider(this.hero, this.cratesGroup);
 
@@ -583,6 +592,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   levelClear() {
+    if (this.hasLevelCleared || this.hasHeroDied) return;
+    this.hasLevelCleared = true;
+
     // Save progression
     SaveSystem.setHighestRealm(this.currentRealm + 1);
     SaveSystem.setBestScore(this.currentRealm, this.hero.score);
@@ -596,11 +608,15 @@ export class GameScene extends Phaser.Scene {
       kills: this.hero.kills,
       score: this.hero.score,
       hasWingBoots: this.hero.hasWingBoots,
+      hp: this.hero.hp,
       stats: this.stats
     });
   }
 
   onHeroDeath() {
+    if (this.hasHeroDied || this.hasLevelCleared) return;
+    this.hasHeroDied = true;
+
     this.stats.died = true;
     this.time.delayedCall(800, () => {
       this.scene.stop('HUDScene');

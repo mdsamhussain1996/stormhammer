@@ -1,4 +1,5 @@
 import { audio } from '../systems/Audio.js';
+import { SaveSystem } from '../systems/Save.js';
 
 /**
  * LevelClearScene
@@ -16,6 +17,8 @@ export class LevelClearScene extends Phaser.Scene {
     this.kills = data.kills || 0;
     this.score = data.score || 0;
     this.hasWingBoots = !!data.hasWingBoots;
+    this.hp = data.hp;
+    this.stats = data.stats || { foundKey: false, allSecrets: false, died: false };
   }
 
   create() {
@@ -148,6 +151,9 @@ export class LevelClearScene extends Phaser.Scene {
           nextRealm: this.realm + 1,
           coins: this.coins,
           score: this.score,
+          kills: this.kills,
+          hp: this.hp,
+          hasWingBoots: this.hasWingBoots,
           stats: this.stats
         });
       }

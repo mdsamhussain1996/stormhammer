@@ -9,6 +9,8 @@ export class ParallaxSystem {
     this.worldWidth = worldWidth;
     this.worldHeight = worldHeight;
     this.layers = [];
+    this.drift1 = 0;
+    this.drift2 = 0;
 
     this.createLayers();
   }
@@ -26,43 +28,44 @@ export class ParallaxSystem {
     this.layers.push(sky);
 
     // Parallax Layer 1 (Drifting distant clouds / smoke / mist)
-    const layer1 = this.scene.add.tileSprite(0, 0, this.worldWidth * 1.5, H, `bg_l1_${this.theme}`)
+    const layer1 = this.scene.add.tileSprite(0, 0, W, H, `bg_l1_${this.theme}`)
       .setOrigin(0, 0)
-      .setScrollFactor(0.08, 0.03)
+      .setScrollFactor(0)
       .setDepth(-90);
     this.layers.push(layer1);
 
     // Parallax Layer 2 (Far mountains / distant towers / high masonry)
-    const layer2 = this.scene.add.tileSprite(0, 0, this.worldWidth * 1.5, H, `bg_l2_${this.theme}`)
+    const layer2 = this.scene.add.tileSprite(0, 0, W, H, `bg_l2_${this.theme}`)
       .setOrigin(0, 0)
-      .setScrollFactor(0.22, 0.08)
+      .setScrollFactor(0)
       .setDepth(-80);
     this.layers.push(layer2);
 
     // Parallax Layer 3 (Mid tree trunks / tall bookshelves / crenellated walls)
-    const layer3 = this.scene.add.tileSprite(0, 0, this.worldWidth * 1.5, H, `bg_l3_${this.theme}`)
+    const layer3 = this.scene.add.tileSprite(0, 0, W, H, `bg_l3_${this.theme}`)
       .setOrigin(0, 0)
-      .setScrollFactor(0.42, 0.14)
+      .setScrollFactor(0)
       .setDepth(-70);
     this.layers.push(layer3);
-
-    // Parallax Layer 4 (Near silhouettes / pillars / hanging vines)
-    const layer4 = this.scene.add.tileSprite(0, 0, this.worldWidth * 1.5, H, `bg_l3_${this.theme}`)
-      .setOrigin(0, 0)
-      .setScrollFactor(0.65, 0.22)
-      .setAlpha(0.6)
-      .setDepth(-60);
-    this.layers.push(layer4);
   }
 
   update(time, delta) {
     const dt = (delta || 16) / 1000;
+    const cam = this.scene.cameras.main;
+    const camX = cam ? cam.scrollX : 0;
+
     // Ambient slow drift: drifting clouds/smoke (layer 1) and gentle parallax sway
+    this.drift1 += 4.5 * dt;
+    this.drift2 += 1.8 * dt;
+
     if (this.layers[1]) {
-      this.layers[1].tilePositionX += 4.5 * dt;
+      this.layers[1].tilePositionX = camX * 0.08 + this.drift1;
     }
     if (this.layers[2]) {
-      this.layers[2].tilePositionX += 1.8 * dt;
+      this.layers[2].tilePositionX = camX * 0.22 + this.drift2;
+    }
+    if (this.layers[3]) {
+      this.layers[3].tilePositionX = camX * 0.42;
     }
   }
 
@@ -71,3 +74,4 @@ export class ParallaxSystem {
     this.layers = [];
   }
 }
+

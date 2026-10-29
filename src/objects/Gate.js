@@ -97,6 +97,8 @@ export class Gate {
         this.isOpening = false;
         // Remove collision barrier so hero can walk through
         if (this.barrier) {
+          this.barrier.enable = false;
+          if (this.scene.gateCollider) this.scene.gateCollider.destroy();
           this.scene.physics.world.remove(this.barrier);
         }
       }

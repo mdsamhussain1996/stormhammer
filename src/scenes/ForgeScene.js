@@ -16,6 +16,9 @@ export class ForgeScene extends Phaser.Scene {
     this.coins = data.coins || 0;
     this.score = data.score || 0;
     this.stats = data.stats || {};
+    this.kills = data.kills || 0;
+    this.hp = data.hp;
+    this.hasWingBoots = !!data.hasWingBoots;
   }
 
   create() {
@@ -169,8 +172,13 @@ export class ForgeScene extends Phaser.Scene {
       audio.playSfx('power');
       this.scene.start('GameScene', {
         realm: this.nextRealm,
-        score: this.score,
-        coins: this.coins
+        playerState: {
+          hp: this.hp,
+          coins: this.coins,
+          score: this.score,
+          kills: this.kills,
+          hasWingBoots: this.hasWingBoots
+        }
       });
     });
   }
@@ -235,6 +243,9 @@ export class ForgeScene extends Phaser.Scene {
       const currentUpgrades = SaveSystem.getUpgrades();
       currentUpgrades[item.id] = item.level;
       SaveSystem.setUpgrades(currentUpgrades);
+      if (item.id === 'maxHp') {
+        this.hp = (this.hp || 5) + 1;
+      }
 
       // Refresh UI
       this.coinsText.setText(`COINS: ${this.coins}`);

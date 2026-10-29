@@ -56,5 +56,7 @@ const config = {
 
 // Start the game instance
 const game = new Phaser.Game(config);
+window.__STORMHAMMER_GAME__ = game;
+window.game = game;
 
 export default game;

@@ -78,6 +78,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 
   update(time, delta, input) {
+    if (this.heroDead) return;
     const dt = delta / 1000;
 
     // Update timers
@@ -123,7 +124,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
       // Record safe checkpoint if standing on solid ground
       const tileX = Math.floor(this.x / 40);
-      const tileY = Math.floor((this.y + 26) / 40);
+      const tileY = Math.floor((this.body.bottom + 2) / 40);
       if (this.scene.isSolidTile && this.scene.isSolidTile(tileX, tileY) && this.invulnerableTimer <= 0.5) {
         this.safeCheckpoint.x = this.x;
         this.safeCheckpoint.y = this.y;
@@ -411,6 +412,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 
   takeHit(damage = 1, sourceX = 0) {
+    if (this.heroDead) return;
     // If shielded with Aegis, immune to damage and deal damage back to attacker!
     if (this.shieldTimer > 0) {
       audio.playSfx('hit');
@@ -438,6 +440,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 
   fallIntoPit() {
+    if (this.heroDead) return;
     this.hp -= 1;
     audio.playSfx('hurt');
     this.scene.fx.shake(0.018, 300);
@@ -457,6 +460,11 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 
   die() {
+    if (this.heroDead) return;
+    this.heroDead = true;
+    this.hp = 0;
+    this.setVelocity(0, 0);
+    this.body.setAllowGravity(false);
     this.anims.play('hero_anim_death', true);
     audio.playSfx('die');
     this.scene.fx.burst(this.x, this.y, 28, [0x7fd4ff, 0xffffff, 0xa8323b], 350, 900, 600);

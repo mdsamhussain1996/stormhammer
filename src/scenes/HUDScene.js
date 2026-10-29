@@ -12,6 +12,18 @@ export class HUDScene extends Phaser.Scene {
 
   create() {
     this.gameScene = this.scene.get('GameScene');
+    // Flush any toast requested before this HUD finished creating
+    this.events.once('create', () => {
+      if (this.pendingToast) {
+        const t = this.pendingToast;
+        this.pendingToast = null;
+        this.showToast(t.msg, t.duration);
+      }
+      if (this.pendingPulseKeySlot) {
+        this.pendingPulseKeySlot = false;
+        this.pulseKeySlot();
+      }
+    });
     const W = this.scale.width;
 
     // --- Top-Left Container (Hearts, Coins, Score, Key Slot) ---
@@ -190,6 +202,11 @@ export class HUDScene extends Phaser.Scene {
   }
 
   pulseKeySlot() {
+    const ready = this.sys.isActive() && this.keySlotBg && this.keySlotBg.scene && this.tweens;
+    if (!ready) {
+      this.pendingPulseKeySlot = true;
+      return;
+    }
     if (this.keySlotPulseTween && this.keySlotPulseTween.isPlaying()) return;
 
     this.keySlotPulseTween = this.tweens.add({
@@ -202,8 +219,11 @@ export class HUDScene extends Phaser.Scene {
   }
 
   showToast(msg, duration = 2400) {
-    if (!this.toastText || !this.toastBg || !this.toastContainer) {
-      this.time?.delayedCall(150, () => this.showToast(msg, duration));
+    // HUD may not be running yet (launch is deferred a frame) or may still hold
+    // destroyed objects from the previous realm. Queue the toast until create() runs.
+    const ready = this.sys.isActive() && this.toastText && this.toastText.scene && this.toastBg && this.toastBg.scene;
+    if (!ready) {
+      this.pendingToast = { msg, duration };
       return;
     }
     if (this.toastHideTimer) this.toastHideTimer.remove();
@@ -237,6 +257,16 @@ export class HUDScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    if (this.pendingToast) {
+      const t = this.pendingToast;
+      this.pendingToast = null;
+      this.showToast(t.msg, t.duration);
+    }
+    if (this.pendingPulseKeySlot) {
+      this.pendingPulseKeySlot = false;
+      this.pulseKeySlot();
+    }
+
     const game = this.gameScene;
     if (!game || !game.hero) return;
     const hero = game.hero;
