@@ -38,6 +38,30 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.wasOnGround = false;
     this.droppingThroughPlank = 0;
 
+    // Movement Acrobatic States
+    this.isDashing = false;
+    this.dashTimer = 0;
+    this.dashCooldown = 0;
+    this.isWallSliding = false;
+    this.wallDir = 0;
+    this.isSurfing = false;
+    this.isRecallPullingHero = false;
+
+    // Combat: 3-Hit Combo
+    this.comboStep = 0; // 0 = Horizontal, 1 = Uppercut Launcher, 2 = Overhead Smash
+    this.comboResetTimer = 0;
+
+    // Combat: Parry
+    this.isParrying = false;
+    this.parryTimer = 0;
+    this.parryCooldown = 0;
+    this.parryAura = scene.add.circle(0, 0, 36, 0xf2c14e, 0.35).setVisible(false).setDepth(29);
+    this.parryAura.setStrokeStyle(2.5, 0xffffff, 0.9);
+
+    // Elemental Runes
+    this.runes = ['storm', 'frost', 'ember', 'stone'];
+    this.currentRuneIndex = 0;
+
     // Checkpoint
     this.safeCheckpoint = { x: x, y: y };
 
@@ -70,11 +94,15 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
-    this.body.setSize(26, 46);
-    this.body.setOffset(19, 18);
+    this.body.setSize(36, 74);
+    this.body.setOffset(30, 14);
     // Rely exclusively on world gravity (2000) to avoid double gravity
-    this.body.setMaxVelocity(350, 950);
+    this.body.setMaxVelocity(600, 950);
     this.setDepth(25);
+  }
+
+  get currentRune() {
+    return this.runes[this.currentRuneIndex];
   }
 
   update(time, delta, input) {
@@ -103,11 +131,109 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       this.shieldAura.setVisible(false);
     }
 
+    // Timers
+    if (this.dashCooldown > 0) this.dashCooldown -= dt;
+    if (this.parryCooldown > 0) this.parryCooldown -= dt;
+    if (this.comboResetTimer > 0) {
+      this.comboResetTimer -= dt;
+      if (this.comboResetTimer <= 0) this.comboStep = 0;
+    }
+
+    // Active Air Dash
+    if (this.isDashing) {
+      this.dashTimer -= dt;
+      this.setVelocityX(this.facing * 580);
+      this.setVelocityY(0);
+      // Spawn afterimage ghost
+      if (Math.random() < 0.5) {
+        const ghost = this.scene.add.sprite(this.x, this.y, 'hero_sheet', this.frame.name)
+          .setTint(0x7fd4ff)
+          .setAlpha(0.6)
+          .setFlipX(this.flipX)
+          .setDepth(24);
+        this.scene.tweens.add({
+          targets: ghost,
+          alpha: 0,
+          duration: 180,
+          onComplete: () => ghost.destroy()
+        });
+      }
+      if (this.dashTimer <= 0) {
+        this.isDashing = false;
+      }
+      this.hammer.update(time, delta);
+      return;
+    }
+
+    // Active Parry Stance
+    if (this.isParrying) {
+      this.parryTimer -= dt;
+      this.parryAura.setVisible(true);
+      this.parryAura.setPosition(this.x, this.y);
+      this.parryAura.setScale(1 + Math.sin(time / 60) * 0.12);
+      this.setVelocityX(this.body.velocity.x * 0.8);
+      if (this.parryTimer <= 0) {
+        this.isParrying = false;
+        this.parryAura.setVisible(false);
+      }
+    } else {
+      this.parryAura.setVisible(false);
+    }
+
+    // Active Recall Pull (Hammer drags Hero across gaps)
+    if (this.isRecallPullingHero) {
+      if (this.hammer.state === 'held' || this.hammer.state === 'anchored') {
+        this.isRecallPullingHero = false;
+      } else {
+        const hAngle = Phaser.Math.Angle.Between(this.x, this.y, this.hammer.x, this.hammer.y);
+        const hDist = Phaser.Math.Distance.Between(this.x, this.y, this.hammer.x, this.hammer.y);
+        this.setVelocity(Math.cos(hAngle) * 620, Math.sin(hAngle) * 620);
+        this.scene.fx.burst(this.x, this.y, 2, [0x7fd4ff, 0xffffff], 60, 200, 0);
+        if (hDist < 36) {
+          this.isRecallPullingHero = false;
+          this.hammer.catch();
+        }
+        this.hammer.update(time, delta);
+        return;
+      }
+    }
+
+    // Rune Swapping
+    if (input.justRuneSwap()) {
+      this.currentRuneIndex = (this.currentRuneIndex + 1) % this.runes.length;
+      const runeColors = { storm: 0x7fd4ff, frost: 0xaef2ff, ember: 0xff7722, stone: 0xcca677 };
+      this.scene.fx.burst(this.x, this.y - 10, 10, [runeColors[this.currentRune], 0xffffff], 140, 320, 0);
+      audio.playSfx('power');
+      const hud = this.scene.scene.get('HUDScene');
+      hud?.showToast(`⚡ RUNE: ${this.currentRune.toUpperCase()}`, 800);
+    }
+
+    // Air Dash Trigger (Shift / C / Touch)
+    if (input.justDash() && this.dashCooldown <= 0 && !this.isDashing) {
+      this.isDashing = true;
+      this.dashTimer = 0.18;
+      this.dashCooldown = 0.65;
+      this.invulnerableTimer = 0.22;
+      this.setVelocity(this.facing * 580, 0);
+      audio.playSfx('jump');
+      this.scene.fx.burst(this.x, this.y, 8, [0x7fd4ff, 0xffffff], 120, 240, 0);
+    }
+
+    // Parry Trigger (Q / Touch)
+    if (input.justParry() && this.parryCooldown <= 0 && !this.isParrying) {
+      this.isParrying = true;
+      this.parryTimer = 0.22;
+      this.parryCooldown = 0.55;
+      audio.playSfx('swing');
+      this.scene.fx.burst(this.x, this.y, 6, [0xf2c14e, 0xffffff], 100, 200, 0);
+    }
+
     // Ground & Checkpoint tracking
     const onGround = this.body.blocked.down;
     if (onGround) {
       this.coyoteTime = 0.1;
       this.canDoubleJump = this.hasWingBoots;
+      this.isWallSliding = false;
 
       if (!this.wasOnGround) {
         // Landing dust puff & squash animation
@@ -131,6 +257,20 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       }
     } else {
       this.coyoteTime = Math.max(0, this.coyoteTime - dt);
+
+      // Wall Slide Check (falling against solid wall)
+      if ((this.body.blocked.left || this.body.blocked.right) && this.body.velocity.y > 0) {
+        this.isWallSliding = true;
+        this.wallDir = this.body.blocked.left ? -1 : 1;
+        // Slow fall
+        this.setVelocityY(Math.min(this.body.velocity.y, 85));
+        // Gauntlet sparks
+        if (Math.random() < 0.4) {
+          this.scene.fx.burst(this.x + this.wallDir * 16, this.y + 12, 2, [0xf2c14e, 0xffffff], 50, 160, 0);
+        }
+      } else {
+        this.isWallSliding = false;
+      }
     }
     this.wasOnGround = onGround;
 
@@ -139,9 +279,20 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     if (input.isLeft()) moveDir -= 1;
     if (input.isRight()) moveDir += 1;
 
-    const currentSpeed = this.stormTimer > 0 ? this.runSpeed * 1.1 : this.runSpeed;
-    const accel = onGround ? 1800 : 900;
+    // Hammer Surf: Down + Direction while grounded
+    const isSurfing = onGround && input.isDown() && moveDir !== 0;
+    this.isSurfing = isSurfing;
+
+    const currentSpeed = isSurfing ? 420 : (this.stormTimer > 0 ? this.runSpeed * 1.15 : this.runSpeed);
+    const accel = onGround ? (isSurfing ? 2400 : 1800) : 900;
     const drag = onGround ? 1600 : 600;
+
+    if (isSurfing) {
+      // Sparks under hammer surf
+      if (Math.random() < 0.5) {
+        this.scene.fx.burst(this.x, this.y + 30, 2, [0xf2c14e, 0x7fd4ff, 0xffffff], 60, 180, 0);
+      }
+    }
 
     if (moveDir !== 0) {
       this.facing = moveDir;
@@ -161,8 +312,18 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
     }
 
+    // Wall Jump
+    if (this.jumpBuffer > 0 && this.isWallSliding) {
+      this.setVelocity(-this.wallDir * 330, -this.jumpForce * 0.95);
+      this.facing = -this.wallDir;
+      this.setFlipX(this.facing < 0);
+      this.jumpBuffer = 0;
+      this.isWallSliding = false;
+      audio.playSfx('jump');
+      this.scene.fx.dustPuff(this.x + this.wallDir * 16, this.y, 6);
+    }
     // Drop through one-way plank (Down + Jump)
-    if (this.jumpBuffer > 0 && input.isDown() && onGround) {
+    else if (this.jumpBuffer > 0 && input.isDown() && onGround && !isSurfing) {
       this.droppingThroughPlank = 0.25;
       this.jumpBuffer = 0;
       this.y += 3;
@@ -217,7 +378,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       this.slamGraphics.lineBetween(this.x, this.y - 32, this.x, this.y + 16);
 
       if (onGround) {
-        this.performGroundSlamImpact();
+        this.performGroundSlamImpact(input.isJumpHeld());
       }
       this.hammer.update(time, delta);
       return;
@@ -229,17 +390,19 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
-    // Thunder Strike Trigger: press L when meter full
+    // Thunder Strike Trigger (STORMFALL): press L when meter full
     if (input.justThunder() && this.thunderMeter >= 100) {
       this.useThunderStrike();
     }
 
-    // Melee Attack (Swing)
+    // Melee Attack (3-Hit Combo)
     if (input.justSwing() && !this.isSwinging && this.hammer.isHeld()) {
+      this.comboStep = (this.comboResetTimer > 0) ? (this.comboStep + 1) % 3 : 0;
+      this.comboResetTimer = 0.55;
       this.startSwing();
     }
 
-    // Thrown Hammer Attack & Charged Throw & Recall Pull
+    // Thrown Hammer Attack & Charged Throw & Recall Pull Traversal
     if (this.hammer.isHeld() && !this.isSwinging) {
       if (input.isThrowHeld()) {
         this.throwChargeTimer += dt;
@@ -261,9 +424,15 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
         this.hammer.throw(this.facing, false);
       }
     } else if (!this.hammer.isHeld()) {
-      // Recall pull: pressing K while hammer is out recalls it instantly and pulls small enemies
+      // Recall pull: holding jump when recalling pulls the hero toward the hammer across gaps!
       if (input.justThrow()) {
-        this.hammer.recallPull();
+        if (input.isJumpHeld()) {
+          this.isRecallPullingHero = true;
+          this.hammer.turnAround();
+          audio.playSfx('power');
+        } else {
+          this.hammer.recallPull();
+        }
       }
     }
 
@@ -320,22 +489,49 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.swingTimer -= dt;
     const progress = 1 - (this.swingTimer / this.swingDuration);
 
-    // Active hit window is the middle third (progress between 0.25 and 0.75)
-    if (progress >= 0.25 && progress <= 0.75) {
+    // Active hit window is the middle third (progress between 0.20 and 0.80)
+    if (progress >= 0.20 && progress <= 0.80) {
       const isStorm = this.stormTimer > 0;
-      const hitW = isStorm ? 65 : 50;
-      const hitH = isStorm ? 68 : 56;
-      const hitX = this.facing > 0 ? this.x + 8 : this.x - 8 - hitW;
-      const hitY = this.y - hitH / 2;
+      const rune = this.currentRune;
+      
+      // Combo Step hit box and styling
+      let hitW = 54;
+      let hitH = 58;
+      let hitY = this.y - hitH / 2;
+      let hitX = this.facing > 0 ? this.x + 8 : this.x - 8 - hitW;
+      let trailColor = 0xffffff;
+
+      if (rune === 'storm' || isStorm) {
+        trailColor = 0x7fd4ff;
+        hitW += 12;
+      } else if (rune === 'frost') {
+        trailColor = 0xaef2ff;
+      } else if (rune === 'ember') {
+        trailColor = 0xff7722;
+      } else if (rune === 'stone') {
+        trailColor = 0xcca677;
+        hitW += 8;
+      }
+
+      if (this.comboStep === 1) {
+        // Uppercut Launcher: reaches higher
+        hitH = 76;
+        hitY = this.y - 48;
+      } else if (this.comboStep === 2) {
+        // Overhead Smash: downward reach
+        hitW = 68;
+        hitH = 68;
+        hitY = this.y - 20;
+      }
 
       const hitRect = new Phaser.Geom.Rectangle(hitX, hitY, hitW, hitH);
 
-      // White / blue motion trail arc
-      this.swingGraphics.lineStyle(6, isStorm ? 0x7fd4ff : 0xffffff, 0.75);
+      // Motion trail arc
+      this.swingGraphics.lineStyle(this.comboStep === 2 ? 8 : 6, trailColor, 0.85);
       const startAngle = this.facing > 0 ? -Math.PI * 0.45 : -Math.PI * 0.55;
       const endAngle = this.facing > 0 ? Math.PI * 0.35 : Math.PI * 1.35;
       this.swingGraphics.beginPath();
-      this.swingGraphics.arc(this.x + this.facing * 12, this.y - 6, 36, startAngle, endAngle, this.facing < 0);
+      this.swingGraphics.arc(this.x + this.facing * 14, this.y - (this.comboStep === 1 ? 16 : 4), 38, startAngle, endAngle, this.facing < 0);
       this.swingGraphics.strokePath();
 
       // Check hits against enemies
@@ -345,17 +541,51 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
             const enemyBounds = enemy.getBounds();
             if (Phaser.Geom.Intersects.RectangleToRectangle(hitRect, enemyBounds)) {
               this.swingHitEnemies.add(enemy);
-              const damage = isStorm ? 2 : 1;
-              enemy.takeDamage(damage, this.x);
-              this.addThunderMeter(12);
 
-              this.scene.fx.hitStop(40);
-              this.scene.fx.shake(0.008, 140);
-              audio.playSfx('hit');
+              // Combo damage: Hit 1 = 1, Hit 2 (Uppercut) = 1.5, Hit 3 (Smash) = 2.5
+              let baseDamage = this.comboStep === 2 ? 2.5 : (this.comboStep === 1 ? 1.5 : 1);
+              if (isStorm) baseDamage += 1;
 
-              if (isStorm) {
-                this.scene.triggerChainLightning(enemy);
+              enemy.takeDamage(baseDamage, this.x);
+              this.addThunderMeter(14);
+
+              // Combo juggles
+              if (this.comboStep === 1 && enemy.body && !enemy.isBoss) {
+                // Uppercut launches into air for juggle!
+                enemy.body.setVelocityY(-360);
+              } else if (this.comboStep === 2 && enemy.body && !enemy.isBoss) {
+                // Overhead smash spikes downward
+                enemy.body.setVelocityY(420);
+                this.scene.fx.burst(enemy.x, enemy.y + 20, 10, [trailColor, 0xffffff], 140, 300, 0);
               }
+
+              // Elemental Rune Effects
+              if (rune === 'storm' || isStorm) {
+                this.scene.triggerChainLightning(enemy);
+              } else if (rune === 'frost') {
+                if (enemy.freeze) {
+                  enemy.freeze(3.5);
+                } else {
+                  enemy.setTint(0xaef2ff);
+                  if (enemy.body) enemy.body.setVelocity(0, 0);
+                }
+                this.scene.fx.burst(enemy.x, enemy.y, 8, [0xaef2ff, 0xffffff], 90, 240, 0);
+              } else if (rune === 'ember') {
+                if (enemy.burn) enemy.burn(3);
+                this.scene.fx.burst(enemy.x, enemy.y, 12, [0xff5500, 0xf2c14e], 160, 320, 0);
+              } else if (rune === 'stone') {
+                // Heavy stone knockback
+                if (enemy.body) {
+                  const kDir = this.facing;
+                  enemy.body.setVelocityX(kDir * 420);
+                  enemy.body.setVelocityY(-140);
+                }
+                this.scene.fx.burst(enemy.x, enemy.y, 10, [0xcca677, 0x8a7256], 150, 280, 0);
+              }
+
+              this.scene.fx.hitStop(this.comboStep === 2 ? 70 : 45);
+              this.scene.fx.shake(this.comboStep === 2 ? 0.012 : 0.007, 140);
+              audio.playSfx('hit');
             }
           }
         });
@@ -367,7 +597,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
           if (!crate.broken && !this.swingHitObjects.has(crate)) {
             if (Phaser.Geom.Intersects.RectangleToRectangle(hitRect, crate.getBounds())) {
               this.swingHitObjects.add(crate);
-              crate.smash(isStorm);
+              crate.smash(isStorm || rune === 'stone');
             }
           }
         });
@@ -381,6 +611,15 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
               this.swingHitObjects.add(urn);
               urn.smash();
             }
+          }
+        });
+      }
+
+      // Stone Rune cracks secret blocks on melee contact
+      if (rune === 'stone' && this.scene.crackedBlocksGroup) {
+        this.scene.crackedBlocksGroup.getChildren().forEach(block => {
+          if (block.active && Phaser.Geom.Intersects.RectangleToRectangle(hitRect, block.getBounds())) {
+            block.smash();
           }
         });
       }
@@ -413,6 +652,13 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
   takeHit(damage = 1, sourceX = 0) {
     if (this.heroDead) return;
+
+    // PARRY DEFLECTION: If in active parry window, completely block and counter!
+    if (this.isParrying && this.parryTimer > 0) {
+      this.parrySuccess(sourceX);
+      return;
+    }
+
     // If shielded with Aegis, immune to damage and deal damage back to attacker!
     if (this.shieldTimer > 0) {
       audio.playSfx('hit');
@@ -436,6 +682,45 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
     if (this.hp <= 0) {
       this.die();
+    }
+  }
+
+  parrySuccess(sourceX = 0) {
+    this.isParrying = false;
+    this.parryAura.setVisible(false);
+    this.invulnerableTimer = 0.45; // brief invulnerability
+
+    audio.playSfx('power');
+    this.scene.fx.hitStop(90);
+    this.scene.fx.shake(0.015, 200);
+    this.scene.fx.flashScreen(0xf2c14e, 90);
+
+    // Golden parry counter-shockwave
+    const shock = this.scene.add.circle(this.x, this.y, 20, 0xf2c14e, 0.7).setDepth(29);
+    this.scene.tweens.add({
+      targets: shock,
+      scale: 4.5,
+      alpha: 0,
+      duration: 250,
+      onComplete: () => shock.destroy()
+    });
+
+    const hud = this.scene.scene.get('HUDScene');
+    hud?.showToast('🛡️ PERFECT PARRY! Foes Stunned!', 900);
+
+    // Stun and damage nearby enemies
+    if (this.scene.enemiesGroup) {
+      this.scene.enemiesGroup.getChildren().forEach(enemy => {
+        if (!enemy.isDead && Phaser.Math.Distance.Between(this.x, this.y, enemy.x, enemy.y) < 130) {
+          enemy.takeDamage(3, this.x);
+          if (enemy.body) {
+            const kDir = Math.sign(enemy.x - this.x) || this.facing;
+            enemy.body.setVelocity(kDir * 320, -180);
+          }
+          if (enemy.freeze) enemy.freeze(1.8);
+          this.scene.fx.burst(enemy.x, enemy.y, 10, [0xf2c14e, 0xffffff], 160, 320, 0);
+        }
+      });
     }
   }
 
@@ -479,13 +764,22 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     audio.playSfx('swing');
   }
 
-  performGroundSlamImpact() {
+  performGroundSlamImpact(isJumpHeld = false) {
     this.isSlamming = false;
     this.slamGraphics.clear();
     audio.playSfx('break');
 
     this.scene.fx.shake(0.02, 350);
     this.scene.fx.burst(this.x, this.y + 20, 24, [0x7fd4ff, 0xf2c14e, 0xffffff], 280, 500, -250);
+
+    // Thunder Leap: If jump is held during impact, launch hero high!
+    if (isJumpHeld) {
+      this.setVelocityY(-960);
+      audio.playSfx('power');
+      this.scene.fx.burst(this.x, this.y, 16, [0x7fd4ff, 0xffffff], 220, 480, 0);
+      const hud = this.scene.scene.get('HUDScene');
+      hud?.showToast('⚡ THUNDER LEAP!', 700);
+    }
 
     // Shockwave rectangle: covers both left and right (width 200, height 50)
     const shockRect = new Phaser.Geom.Rectangle(this.x - 100, this.y - 10, 200, 50);
@@ -541,37 +835,53 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       audio.playSfx('power');
       this.scene.fx.flashWhite(this);
       const hud = this.scene.scene.get('HUDScene');
-      hud?.showToast('⚡ THUNDER READY! Press [L] or tap Thunder!');
+      hud?.showToast('⚡ STORMFALL READY! Press [L] or tap Stormfall!');
     }
   }
 
   useThunderStrike() {
     this.thunderMeter = 0;
     audio.playSfx('power');
-    this.scene.fx.flashScreen(0x7fd4ff, 100);
-    this.scene.fx.shake(0.025, 550);
+
+    // STORMFALL: 1.2s spectacular screen-clearing lightning sequence
+    this.scene.fx.flashScreen(0xffffff, 120);
+    this.scene.fx.shake(0.03, 600);
 
     const hud = this.scene.scene.get('HUDScene');
-    hud?.showToast('⚡ THUNDER WRATH! All foes struck down!');
+    hud?.showToast('⚡ STORMFALL! WRATH OF THE STORM-SMITH!', 1400);
+
+    // Slow-motion 0.35x sequence
+    this.scene.physics.world.timeScale = 0.35;
+    this.scene.time.delayedCall(1200, () => {
+      this.scene.physics.world.timeScale = 1.0;
+    });
 
     // Strike all active enemies on the screen!
     if (this.scene.enemiesGroup) {
       const cam = this.scene.cameras.main;
       const camView = cam.worldView;
 
-      this.scene.enemiesGroup.getChildren().forEach(enemy => {
+      this.scene.enemiesGroup.getChildren().forEach((enemy, idx) => {
         if (!enemy.isDead && Phaser.Geom.Intersects.RectangleToRectangle(camView, enemy.getBounds())) {
-          // Lightning bolt visual down from sky
-          const bolt = this.scene.add.graphics().setDepth(30);
-          bolt.lineStyle(4, 0xffffff, 1.0);
-          bolt.beginPath();
-          bolt.moveTo(enemy.x + (Math.random() - 0.5) * 20, camView.y);
-          bolt.lineTo(enemy.x, enemy.y);
-          bolt.strokePath();
-          this.scene.time.delayedCall(120, () => bolt.destroy());
+          this.scene.time.delayedCall(idx * 80, () => {
+            if (!enemy.active) return;
+            // Lightning bolt visual down from sky
+            const bolt = this.scene.add.graphics().setDepth(32);
+            bolt.lineStyle(5, 0x7fd4ff, 1.0);
+            bolt.beginPath();
+            bolt.moveTo(enemy.x + (Math.random() - 0.5) * 30, camView.y);
+            bolt.lineTo(enemy.x, enemy.y);
+            bolt.strokePath();
 
-          this.scene.fx.burst(enemy.x, enemy.y, 16, [0x7fd4ff, 0xffffff], 220, 450, 0);
-          enemy.takeDamage(4, enemy.x);
+            // Inner white core
+            bolt.lineStyle(2, 0xffffff, 1.0);
+            bolt.strokePath();
+
+            this.scene.time.delayedCall(180, () => bolt.destroy());
+            audio.playSfx('break');
+            this.scene.fx.burst(enemy.x, enemy.y, 20, [0x7fd4ff, 0xffffff, 0xf2c14e], 250, 500, 0);
+            enemy.takeDamage(8, enemy.x);
+          });
         }
       });
     }
@@ -579,6 +889,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
   destroy(fromScene) {
     if (this.shieldAura) this.shieldAura.destroy();
+    if (this.parryAura) this.parryAura.destroy();
     if (this.swingGraphics) this.swingGraphics.destroy();
     if (this.slamGraphics) this.slamGraphics.destroy();
     if (this.hammer) this.hammer.destroy();

@@ -26,103 +26,133 @@ export class HUDScene extends Phaser.Scene {
     });
     const W = this.scale.width;
 
-    // --- Top-Left Container (Hearts, Coins, Score, Key Slot) ---
+    // --- Slim Compact Top-Left HUD (Hearts, Coins, Score, Key Slot, Thunder Meter in one unified bar) ---
     this.panelBg = this.add.graphics();
-    this.panelBg.fillStyle(0x0e131b, 0.75);
-    this.panelBg.fillRoundedRect(16, 14, 270, 76, 10);
-    this.panelBg.lineStyle(1.5, 0x2a3342, 0.8);
-    this.panelBg.strokeRoundedRect(16, 14, 270, 76, 10);
+    this.panelBg.fillStyle(0x0e131b, 0.88);
+    this.panelBg.fillRoundedRect(14, 12, 280, 50, 8);
+    this.panelBg.lineStyle(1.5, 0x2a3342, 0.9);
+    this.panelBg.strokeRoundedRect(14, 12, 280, 50, 8);
 
     // Hearts (5)
     this.heartSprites = [];
     for (let i = 0; i < 5; i++) {
-      const h = this.add.image(38 + i * 26, 34, 'pickup_heart').setScale(1.1);
+      const h = this.add.image(28 + i * 20, 26, 'pickup_heart').setScale(0.9);
       this.heartSprites.push(h);
     }
 
     // Coins & Score
-    this.coinIcon = this.add.image(36, 68, 'pickup_coin').setScale(0.9);
-    this.coinsText = this.add.text(52, 68, '00', {
+    this.coinIcon = this.add.image(142, 26, 'pickup_coin').setScale(0.8);
+    this.coinsText = this.add.text(154, 26, '00', {
       fontFamily: "'Alegreya Sans SC', sans-serif",
-      fontSize: '20px',
+      fontSize: '16px',
       color: '#f2c14e',
       fontStyle: 'bold'
     }).setOrigin(0, 0.5);
 
-    this.scoreLabel = this.add.text(100, 68, 'SCORE', {
+    this.scoreText = this.add.text(205, 26, '0', {
       fontFamily: "'Alegreya Sans SC', sans-serif",
-      fontSize: '13px',
-      color: '#98a0ae',
-      fontStyle: 'bold'
-    }).setOrigin(0, 0.5);
-
-    this.scoreText = this.add.text(146, 68, '0', {
-      fontFamily: "'Alegreya Sans SC', sans-serif",
-      fontSize: '20px',
+      fontSize: '15px',
       color: '#ece6d6',
       fontStyle: 'bold'
     }).setOrigin(0, 0.5);
 
-    // Key Slot (pulses when near key crate)
-    this.keySlotBg = this.add.rectangle(254, 52, 38, 52, 0x141a24, 0.6)
-      .setStrokeStyle(1.5, 0x4a5568, 0.8);
+    // Key Slot
+    this.keySlotBg = this.add.rectangle(268, 26, 24, 26, 0x141a24, 0.8)
+      .setStrokeStyle(1.2, 0x4a5568, 0.9);
 
-    this.keyIcon = this.add.image(254, 52, 'pickup_key')
-      .setScale(1.1)
+    this.keyIcon = this.add.image(268, 26, 'pickup_key')
+      .setScale(0.85)
       .setAlpha(0.25);
 
+    // Thunder Meter Bar inside the compact panel
+    this.thunderBg = this.add.rectangle(24, 48, 240, 5, 0x141a24).setOrigin(0, 0.5);
+    this.thunderBar = this.add.rectangle(24, 48, 0, 5, 0x7fd4ff).setOrigin(0, 0.5);
+    this.thunderLabel = this.add.text(268, 48, '⚡', {
+      fontFamily: "'Alegreya Sans SC', sans-serif",
+      fontSize: '11px',
+      color: '#7fd4ff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5, 0.5);
+
+    // --- Active Elemental Rune Badge ---
+    this.runeBadge = this.add.container(304, 14);
+    const runeBg = this.add.graphics();
+    runeBg.fillStyle(0x0e131b, 0.88);
+    runeBg.fillRoundedRect(0, 0, 84, 46, 6);
+    runeBg.lineStyle(1.5, 0x7fd4ff, 0.8);
+    runeBg.strokeRoundedRect(0, 0, 84, 46, 6);
+
+    const runeIcon = this.add.text(14, 23, '⚡', { fontSize: '18px' }).setOrigin(0.5);
+    const runeLabel = this.add.text(48, 16, 'RUNE', {
+      fontFamily: "'Alegreya Sans SC', sans-serif",
+      fontSize: '9px',
+      color: '#98a0ae',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+    const runeName = this.add.text(48, 30, 'STORM', {
+      fontFamily: "'Alegreya Sans SC', sans-serif",
+      fontSize: '13px',
+      color: '#7fd4ff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    this.runeBadge.add([runeBg, runeIcon, runeLabel, runeName]);
+    this.runeBgGfx = runeBg;
+    this.runeIconText = runeIcon;
+    this.runeNameText = runeName;
+
+    // Interactive: tap rune badge to swap rune!
+    this.runeBadge.setSize(84, 46);
+    this.runeBadge.setInteractive(new Phaser.Geom.Rectangle(0, 0, 84, 46), Phaser.Geom.Rectangle.Contains);
+    this.runeBadge.on('pointerdown', () => {
+      if (this.gameScene && this.gameScene.hero) {
+        this.gameScene.hero.currentRuneIndex = (this.gameScene.hero.currentRuneIndex + 1) % this.gameScene.hero.runes.length;
+        audio.playSfx('power');
+      }
+    });
+
     // --- Active Power-Up Badges ---
-    this.powerContainer = this.add.container(300, 14);
+    this.powerContainer = this.add.container(398, 14);
 
     // Storm Badge
     this.stormBadge = this.createPowerBadge(0, 'pickup_storm', 0x7fd4ff);
     // Aegis Badge
-    this.aegisBadge = this.createPowerBadge(54, 'pickup_shield', 0x9ef0e0);
+    this.aegisBadge = this.createPowerBadge(42, 'pickup_shield', 0x9ef0e0);
     // Wings Badge
-    this.wingsBadge = this.createPowerBadge(108, 'pickup_wings', 0xffffff, false);
+    this.wingsBadge = this.createPowerBadge(84, 'pickup_wings', 0xffffff, false);
 
     this.powerContainer.add([this.stormBadge.container, this.aegisBadge.container, this.wingsBadge.container]);
 
     // --- Top-Right Panel (Realm Name & Progress) ---
-    this.realmText = this.add.text(W - 140, 24, '', {
+    this.realmText = this.add.text(W - 130, 22, '', {
       fontFamily: "'Pirata One', Georgia, serif",
-      fontSize: '28px',
+      fontSize: '24px',
       color: '#ece6d6'
     }).setOrigin(1, 0.5);
 
-    this.realmSub = this.add.text(W - 140, 48, '', {
+    this.realmSub = this.add.text(W - 130, 42, '', {
       fontFamily: "'Alegreya Sans SC', sans-serif",
-      fontSize: '13px',
+      fontSize: '12px',
       color: '#98a0ae',
       fontStyle: 'bold'
     }).setOrigin(1, 0.5);
 
     // Gate Progress Bar
-    this.progressBg = this.add.rectangle(W - 250, 68, 110, 4, 0x2a3342).setOrigin(0, 0.5);
-    this.progressBar = this.add.rectangle(W - 250, 68, 0, 4, 0x7fd4ff).setOrigin(0, 0.5);
-    this.gateMarker = this.add.rectangle(W - 140, 68, 4, 12, 0xf2c14e).setOrigin(0.5, 0.5);
+    this.progressBg = this.add.rectangle(W - 230, 56, 95, 4, 0x2a3342).setOrigin(0, 0.5);
+    this.progressBar = this.add.rectangle(W - 230, 56, 0, 4, 0x7fd4ff).setOrigin(0, 0.5);
+    this.gateMarker = this.add.rectangle(W - 135, 56, 4, 10, 0xf2c14e).setOrigin(0.5, 0.5);
 
     // --- Top-Right Action Buttons (Sound & Pause) ---
-    this.soundBtn = this.createButton(W - 110, 36, audio.isMuted() ? '🔇' : '🔊', () => {
+    this.soundBtn = this.createButton(W - 100, 32, audio.isMuted() ? '🔇' : '🔊', () => {
       const isMuted = audio.toggleMute();
       this.soundBtnText.setText(isMuted ? '🔇' : '🔊');
     });
 
-    this.pauseBtn = this.createButton(W - 50, 36, '⏸', () => {
+    this.pauseBtn = this.createButton(W - 48, 32, '⏸', () => {
       this.scene.launch('PauseScene');
       this.scene.pause('GameScene');
       this.scene.pause();
     });
-
-    // --- Thunder Meter Display ---
-    this.thunderBg = this.add.rectangle(16, 96, 270, 6, 0x141a24).setOrigin(0, 0.5);
-    this.thunderBar = this.add.rectangle(16, 96, 0, 6, 0x7fd4ff).setOrigin(0, 0.5);
-    this.thunderLabel = this.add.text(16, 108, '⚡ THUNDER: 0%', {
-      fontFamily: "'Alegreya Sans SC', sans-serif",
-      fontSize: '11px',
-      color: '#7fd4ff',
-      fontStyle: 'bold'
-    }).setOrigin(0, 0.5);
 
     // --- Bottom Boss Health Bar ---
     const H = this.scale.height;
@@ -218,7 +248,7 @@ export class HUDScene extends Phaser.Scene {
     });
   }
 
-  showToast(msg, duration = 2400) {
+  showToast(msg, duration = 1200) {
     // HUD may not be running yet (launch is deferred a frame) or may still hold
     // destroyed objects from the previous realm. Queue the toast until create() runs.
     const ready = this.sys.isActive() && this.toastText && this.toastText.scene && this.toastBg && this.toastBg.scene;
@@ -288,6 +318,27 @@ export class HUDScene extends Phaser.Scene {
       this.keyIcon.setAlpha(0.25);
     }
 
+    // Active Rune Badge Dynamic Update
+    const rune = hero.currentRune || 'storm';
+    const runeMeta = {
+      storm: { icon: '⚡', color: '#7fd4ff', hex: 0x7fd4ff },
+      frost: { icon: '❄️', color: '#aef2ff', hex: 0xaef2ff },
+      ember: { icon: '🔥', color: '#ff7722', hex: 0xff7722 },
+      stone: { icon: '⛰️', color: '#cca677', hex: 0xcca677 }
+    }[rune] || { icon: '⚡', color: '#7fd4ff', hex: 0x7fd4ff };
+
+    if (this.currentRenderedRune !== rune) {
+      this.currentRenderedRune = rune;
+      this.runeIconText.setText(runeMeta.icon);
+      this.runeNameText.setText(rune.toUpperCase());
+      this.runeNameText.setColor(runeMeta.color);
+      this.runeBgGfx.clear();
+      this.runeBgGfx.fillStyle(0x0e131b, 0.88);
+      this.runeBgGfx.fillRoundedRect(0, 0, 84, 46, 6);
+      this.runeBgGfx.lineStyle(1.5, runeMeta.hex, 0.8);
+      this.runeBgGfx.strokeRoundedRect(0, 0, 84, 46, 6);
+    }
+
     // Power Badges
     if (hero.stormTimer > 0) {
       this.stormBadge.container.setVisible(true);
@@ -305,15 +356,15 @@ export class HUDScene extends Phaser.Scene {
       this.aegisBadge.container.setVisible(false);
     }
 
-    // Thunder Meter Bar
+    // Thunder Meter Bar inside the compact panel
     const thunderPct = Math.floor(hero.thunderMeter || 0);
-    this.thunderBar.setSize(270 * (thunderPct / 100), 6);
+    this.thunderBar.setSize(240 * (thunderPct / 100), 5);
     if (thunderPct >= 100) {
-      this.thunderLabel.setText('⚡ THUNDER READY! [L]');
+      this.thunderLabel.setText('⚡ READY');
       this.thunderLabel.setColor('#f2c14e');
       this.thunderBar.setFillStyle(0xf2c14e);
     } else {
-      this.thunderLabel.setText(`⚡ THUNDER: ${thunderPct}%`);
+      this.thunderLabel.setText('⚡');
       this.thunderLabel.setColor('#7fd4ff');
       this.thunderBar.setFillStyle(0x7fd4ff);
     }
@@ -332,7 +383,7 @@ export class HUDScene extends Phaser.Scene {
     // Realm info & Gate progress
     if (game.levelData) {
       this.realmText.setText(game.levelData.name);
-      this.realmSub.setText(`REALM ${game.levelData.realm} OF 3`);
+      this.realmSub.setText(`REALM ${game.levelData.realm} OF 5`);
 
       const gateX = game.levelData.gate.x * 40;
       const progress = Phaser.Math.Clamp(hero.x / gateX, 0, 1);

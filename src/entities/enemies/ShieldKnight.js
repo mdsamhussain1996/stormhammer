@@ -17,6 +17,8 @@ export class ShieldKnight extends Phaser.Physics.Arcade.Sprite {
     this.facing = -1;
     this.speed = 50;
     this.hurtTimer = 0;
+    this.freezeTimer = 0;
+    this.burnTimer = 0;
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -34,12 +36,41 @@ export class ShieldKnight extends Phaser.Physics.Arcade.Sprite {
       .setDepth(21);
   }
 
+  freeze(duration = 3.5) {
+    if (this.isDead) return;
+    this.freezeTimer = duration;
+    this.setTint(0xaef2ff);
+    this.setVelocity(0, 0);
+  }
+
+  burn(duration = 3.0) {
+    if (this.isDead) return;
+    this.burnTimer = duration;
+    this.setTint(0xff7722);
+  }
+
   update(time, delta, hero) {
     if (this.isDead) return;
     const dt = delta / 1000;
 
     if (this.shieldSprite) {
       this.shieldSprite.setPosition(this.x + this.facing * 14, this.y);
+    }
+
+    if (this.freezeTimer > 0) {
+      this.freezeTimer -= dt;
+      this.setVelocity(0, 0);
+      if (this.freezeTimer <= 0) this.setTint(0xd0d8e8);
+      return;
+    }
+
+    if (this.burnTimer > 0) {
+      this.burnTimer -= dt;
+      if (Math.random() < 0.15) {
+        this.takeDamage(0.3, this.x, true);
+        this.scene.fx.burst(this.x, this.y, 2, [0xff5500, 0xf2c14e], 40, 120, 0);
+      }
+      if (this.burnTimer <= 0) this.setTint(0xd0d8e8);
     }
 
     if (this.hurtTimer > 0) {
@@ -59,16 +90,18 @@ export class ShieldKnight extends Phaser.Physics.Arcade.Sprite {
   takeDamage(amount, sourceX, isSlam = false) {
     if (this.isDead) return;
 
-    // Frontal shield block check: if hit from front and NOT a ground slam, block!
+    // Stone Rune or Ground Slam or Frozen state shatters shield defense!
+    const hero = this.scene.hero;
+    const hasStoneRune = hero && hero.currentRune === 'stone';
     const hitFromFront = (sourceX > this.x && this.facing > 0) || (sourceX < this.x && this.facing < 0);
 
-    if (hitFromFront && !isSlam) {
+    if (hitFromFront && !isSlam && !hasStoneRune && this.freezeTimer <= 0) {
       // Blocked!
       audio.playSfx('hit');
       this.scene.fx.burst(this.x + this.facing * 14, this.y, 8, [0xffffff, 0x8fa0b8, 0x7fd4ff], 160, 200, 0);
       this.scene.fx.shake(0.005, 80);
       const hud = this.scene.scene.get('HUDScene');
-      hud?.showToast('Blocked by Shield! Strike from behind or Ground Slam!');
+      hud?.showToast('Blocked! Strike from behind, use Stone Rune, or Ground Slam!', 900);
       return;
     }
 
@@ -76,6 +109,9 @@ export class ShieldKnight extends Phaser.Physics.Arcade.Sprite {
     this.hp -= amount;
     this.hurtTimer = 0.2;
     this.scene.fx.flashWhite(this);
+    if (this.scene.fx.showDamageNumber) {
+      this.scene.fx.showDamageNumber(this.x, this.y - 12, amount);
+    }
     audio.playSfx('hit');
 
     const knockDir = Math.sign(this.x - sourceX) || -this.facing;

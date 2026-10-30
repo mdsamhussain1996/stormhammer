@@ -295,14 +295,22 @@ export class SoundEngine {
     this.resume();
 
     let step = 0;
-    const interval = theme === 'fortress' ? 380 : theme === 'castle' ? 520 : 600;
+    const interval = theme === 'storm' ? 280 :
+                     theme === 'fortress' ? 380 :
+                     theme === 'frost' ? 440 :
+                     theme === 'castle' ? 520 : 600;
 
     // Scale notes
     const forestNotes = [220, 261.63, 293.66, 329.63, 392.00, 440, 523.25]; // A minor pentatonic / dorian
     const castleNotes = [164.81, 196.00, 220.00, 246.94, 261.63, 329.63]; // E gothic minor
     const fortressNotes = [110, 130.81, 146.83, 164.81, 196.00, 220]; // D driving war scale
+    const frostNotes = [329.63, 392.00, 440.00, 493.88, 587.33, 659.25]; // E crystalline ice scale
+    const stormNotes = [146.83, 174.61, 220.00, 293.66, 349.23, 440.00]; // D heroic storm arpeggio
 
-    const notes = theme === 'fortress' ? fortressNotes : theme === 'castle' ? castleNotes : forestNotes;
+    const notes = theme === 'storm' ? stormNotes :
+                  theme === 'frost' ? frostNotes :
+                  theme === 'fortress' ? fortressNotes :
+                  theme === 'castle' ? castleNotes : forestNotes;
 
     const playNote = () => {
       if (this.muted || !this.ctx) return;
@@ -314,7 +322,8 @@ export class SoundEngine {
         // Melodic synth
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.type = theme === 'fortress' ? 'sawtooth' : theme === 'castle' ? 'square' : 'sine';
+        osc.type = theme === 'storm' || theme === 'fortress' ? 'sawtooth' :
+                   theme === 'frost' || theme === 'castle' ? 'square' : 'sine';
         osc.frequency.setValueAtTime(freq, t);
         gain.gain.setValueAtTime(0.035, t);
         gain.gain.exponentialRampToValueAtTime(0.0001, t + interval / 1000 * 1.5);

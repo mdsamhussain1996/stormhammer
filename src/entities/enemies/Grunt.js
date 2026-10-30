@@ -17,6 +17,8 @@ export class Grunt extends Phaser.Physics.Arcade.Sprite {
     this.patrolSpeed = 65;
     this.chaseSpeed = 120;
     this.hurtTimer = 0;
+    this.freezeTimer = 0;
+    this.burnTimer = 0;
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -28,9 +30,38 @@ export class Grunt extends Phaser.Physics.Arcade.Sprite {
     this.setFlipX(this.facing < 0);
   }
 
+  freeze(duration = 3.5) {
+    if (this.isDead) return;
+    this.freezeTimer = duration;
+    this.setTint(0xaef2ff);
+    this.setVelocity(0, 0);
+  }
+
+  burn(duration = 3.0) {
+    if (this.isDead) return;
+    this.burnTimer = duration;
+    this.setTint(0xff7722);
+  }
+
   update(time, delta, hero) {
     if (this.isDead) return;
     const dt = delta / 1000;
+
+    if (this.freezeTimer > 0) {
+      this.freezeTimer -= dt;
+      this.setVelocity(0, 0);
+      if (this.freezeTimer <= 0) this.clearTint();
+      return;
+    }
+
+    if (this.burnTimer > 0) {
+      this.burnTimer -= dt;
+      if (Math.random() < 0.15) {
+        this.takeDamage(0.3, this.x);
+        this.scene.fx.burst(this.x, this.y, 2, [0xff5500, 0xf2c14e], 40, 120, 0);
+      }
+      if (this.burnTimer <= 0) this.clearTint();
+    }
 
     if (this.hurtTimer > 0) {
       this.hurtTimer -= dt;
@@ -88,6 +119,9 @@ export class Grunt extends Phaser.Physics.Arcade.Sprite {
     this.hurtTimer = 0.2;
 
     this.scene.fx.flashWhite(this);
+    if (this.scene.fx.showDamageNumber) {
+      this.scene.fx.showDamageNumber(this.x, this.y - 12, amount);
+    }
 
     // Knockback
     const knockDir = Math.sign(this.x - sourceX) || 1;

@@ -15,18 +15,64 @@ export class TitleScene extends Phaser.Scene {
     const W = this.scale.width;
     const H = this.scale.height;
 
-    // Background preview (Forest)
+    // Background 5-layer Parallax preview
     this.add.image(0, 0, 'bg_sky_forest').setOrigin(0, 0).setDisplaySize(W, H);
     this.bgL1 = this.add.tileSprite(0, 0, W * 2, H, 'bg_l1_forest').setOrigin(0, 0);
     this.bgL2 = this.add.tileSprite(0, 0, W * 2, H, 'bg_l2_forest').setOrigin(0, 0);
+    this.bgL3 = this.add.tileSprite(0, 0, W * 2, H, 'bg_l3_forest').setOrigin(0, 0);
+
+    // Hero silhouette on high cliff in left foreground
+    const cliff = this.add.graphics();
+    cliff.fillStyle(0x0e131b, 0.95);
+    cliff.beginPath();
+    cliff.moveTo(0, H);
+    cliff.lineTo(0, H - 180);
+    cliff.lineTo(90, H - 170);
+    cliff.lineTo(130, H);
+    cliff.closePath();
+    cliff.fill();
+
+    // Standing hero sprite on cliff
+    this.titleHero = this.add.sprite(55, H - 170, 'hero_sheet', 0).setOrigin(0.5, 1).setScale(1.1);
+    this.titleHero.anims.play('hero_anim_idle', true);
+
+    // Foreground silhouette
+    if (this.textures.exists('bg_fg_forest')) {
+      this.bgFG = this.add.tileSprite(0, 0, W * 2, H, 'bg_fg_forest').setOrigin(0, 0).setDepth(20);
+    }
+
+    // Lightning graphics on title screen
+    this.titleLightning = this.add.graphics().setDepth(25);
 
     // Dark vignette overlay
     const overlay = this.add.graphics();
-    overlay.fillStyle(0x090c10, 0.72);
+    overlay.fillStyle(0x090c10, 0.65);
     overlay.fillRect(0, 0, W, H);
 
+    // Periodic lightning flash revealing the logo dramatically
+    this.time.addEvent({
+      delay: 4500,
+      loop: true,
+      callback: () => {
+        this.titleLightning.clear();
+        this.titleLightning.lineStyle(4, 0x7fd4ff, 0.9);
+        this.titleLightning.beginPath();
+        this.titleLightning.moveTo(W / 2 + 80, 0);
+        this.titleLightning.lineTo(W / 2 + 50, 45);
+        this.titleLightning.lineTo(W / 2 + 90, 85);
+        this.titleLightning.lineTo(W / 2 + 30, 140);
+        this.titleLightning.strokePath();
+
+        const flash = this.add.rectangle(0, 0, W, H, 0x7fd4ff, 0.35).setOrigin(0, 0).setDepth(30);
+        this.time.delayedCall(70, () => {
+          flash.destroy();
+          this.titleLightning.clear();
+        });
+      }
+    });
+
     // Title Card
-    this.add.text(W / 2, 60, 'THREE REALMS · THREE HIDDEN KEYS', {
+    this.add.text(W / 2, 54, 'THREE REALMS · THREE HIDDEN KEYS', {
       fontFamily: "'Alegreya Sans SC', sans-serif",
       fontSize: '14px',
       color: '#7fd4ff',
@@ -34,12 +80,12 @@ export class TitleScene extends Phaser.Scene {
       letterSpacing: 4
     }).setOrigin(0.5);
 
-    const title = this.add.text(W / 2, 108, 'STORMHAMMER', {
+    const title = this.add.text(W / 2, 98, 'STORMHAMMER', {
       fontFamily: "'Pirata One', Georgia, serif",
       fontSize: '68px',
       color: '#ece6d6',
       stroke: '#000000',
-      strokeThickness: 4
+      strokeThickness: 5
     }).setOrigin(0.5);
 
     this.tweens.add({
@@ -51,7 +97,7 @@ export class TitleScene extends Phaser.Scene {
       ease: 'Sine.easeInOut'
     });
 
-    this.add.text(W / 2, 150, 'Each realm hides its key inside one crate. Smash crates for power, defeat foes, and breach the gate.', {
+    this.add.text(W / 2, 140, 'Each realm hides its key inside one crate. Smash crates for power, defeat foes, and breach the gate.', {
       fontFamily: "'Alegreya Sans SC', sans-serif",
       fontSize: '15px',
       color: '#cfd5de',

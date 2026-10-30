@@ -20,11 +20,13 @@ export class FXSystem {
       { x: 0, y: 0, oldX: 0, oldY: 0 },
       { x: 0, y: 0, oldX: 0, oldY: 0 }
     ];
-    this.capeSegmentLength = 7;
+    this.capeSegmentLength = 10;
+    this.trauma = 0; // Trauma-based camera shake
+    this.vignetteGraphics = scene.add.graphics().setDepth(90).setScrollFactor(0);
   }
 
-  // --- Hit Stop Frame Freeze (50–80 ms) ---
-  hitStop(durationMs = 65) {
+  // --- Hit Stop Frame Freeze (60–90 ms regular, 120 ms boss) ---
+  hitStop(durationMs = 75) {
     if (this.scene.physics.world.isPaused) return;
     this.scene.physics.world.isPaused = true;
     this.scene.time.delayedCall(durationMs, () => {
@@ -34,13 +36,60 @@ export class FXSystem {
     });
   }
 
-  // --- Screen Shake Scaled to Damage ---
+  // --- Trauma-based Camera Shake (decays smoothly with ease-out) ---
+  addTrauma(amount = 0.4) {
+    this.trauma = Math.min(1.0, this.trauma + amount);
+  }
+
   shake(intensity = 0.012, duration = 180) {
+    this.addTrauma(intensity * 30);
     this.scene.cameras.main.shake(duration, intensity);
   }
 
-  // --- Zoom Punch on Brute Kills ---
-  zoomPunch(targetZoom = 1.08, duration = 120) {
+  // --- Damage Numbers (Small, stylised arcade popups) ---
+  showDamageNumber(x, y, amount, isCrit = false) {
+    const txt = this.scene.add.text(x, y - 10, String(amount), {
+      fontFamily: "'Alegreya Sans SC', sans-serif",
+      fontSize: isCrit ? '20px' : '16px',
+      color: isCrit ? '#f2c14e' : '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 3,
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(80);
+
+    this.scene.tweens.add({
+      targets: txt,
+      y: y - 40,
+      scale: { from: 1.3, to: 0.9 },
+      alpha: { from: 1, to: 0 },
+      duration: 650,
+      ease: 'Back.easeOut',
+      onComplete: () => txt.destroy()
+    });
+  }
+
+  // --- Chromatic Flash + Slow-motion (0.4s) on boss or final arena kill ---
+  slowMoFinish(duration = 400) {
+    this.flashScreen(0xffffff, 80);
+    this.zoomPunch(1.15, 180);
+    this.scene.time.timeScale = 0.25;
+    this.scene.time.delayedCall(duration, () => {
+      this.scene.time.timeScale = 1.0;
+    });
+  }
+
+  // --- Low HP Vignette Pulse (when HP is 1) ---
+  pulseLowHpVignette(active = true) {
+    this.vignetteGraphics.clear();
+    if (!active) return;
+    const W = this.scene.scale.width;
+    const H = this.scene.scale.height;
+    this.vignetteGraphics.fillStyle(0xff1122, 0.18);
+    this.vignetteGraphics.fillRect(0, 0, W, H);
+  }
+
+  // --- Zoom Punch on Boss / Heavy hits ---
+  zoomPunch(targetZoom = 1.09, duration = 120) {
     const cam = this.scene.cameras.main;
     this.scene.tweens.add({
       targets: cam,
@@ -199,12 +248,33 @@ export class FXSystem {
             .setDepth(60);
           this.scene.physics.add.existing(mote);
           mote.body.setVelocity(Phaser.Math.FloatBetween(-15, 15), Phaser.Math.FloatBetween(-10, -25));
+        } else if (theme === 'snow') {
+          // Drifting blizzard snowflakes
+          const y = cam.scrollY - 10;
+          const flake = this.scene.add.circle(x, y, Phaser.Math.FloatBetween(1.5, 3.0), 0xe8f6ff, 0.75)
+            .setDepth(60);
+          this.scene.physics.add.existing(flake);
+          flake.body.setVelocity(Phaser.Math.FloatBetween(40, 120), Phaser.Math.FloatBetween(80, 160));
           this.scene.tweens.add({
-            targets: mote,
-            alpha: 0,
-            duration: Phaser.Math.Between(2500, 4000),
-            onComplete: () => mote.destroy()
+            targets: flake,
+            x: x + Phaser.Math.FloatBetween(30, 80),
+            duration: 2500,
+            onComplete: () => flake.destroy()
           });
+        } else if (theme === 'storm') {
+          // Heavy slanted storm rain + occasional lightning flicker
+          const y = cam.scrollY - 10;
+          const rain = this.scene.add.rectangle(x, y, 2, 12, 0xaed8f2, 0.65)
+            .setRotation(0.2)
+            .setDepth(60);
+          this.scene.physics.add.existing(rain);
+          rain.body.setVelocity(Phaser.Math.FloatBetween(120, 200), Phaser.Math.FloatBetween(600, 800));
+          this.scene.time.delayedCall(900, () => rain.destroy());
+
+          // Rare ambient sky lightning arc
+          if (Math.random() < 0.04) {
+            this.flashScreen(0x7fd4ff, 50);
+          }
         }
       }
     });

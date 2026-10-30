@@ -85,34 +85,6 @@
         display: flex;
       }
     }
-    #portfolio-banner {
-      position: fixed;
-      bottom: 8px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 1000;
-      font-size: 13px;
-      color: #98a0ae;
-      letter-spacing: 0.05em;
-      background: rgba(14, 19, 27, 0.75);
-      padding: 4px 14px;
-      border-radius: 99px;
-      border: 1px solid rgba(42, 50, 66, 0.8);
-      pointer-events: auto;
-    }
-    @media (pointer: coarse) {
-      #portfolio-banner { display: none; }
-    }
-    #portfolio-banner a {
-      color: var(--storm);
-      text-decoration: none;
-      font-weight: bold;
-      transition: color 0.2s;
-    }
-    #portfolio-banner a:hover {
-      color: #ffffff;
-      text-decoration: underline;
-    }
   </style>
 </head>
 <body>
@@ -122,9 +94,6 @@
     <p>Please rotate your phone to landscape mode to play Stormhammer.</p>
   </div>
   <div id="game-container"></div>
-  <div id="portfolio-banner">
-    Crafted by <a href="https://mdsamhussain1996.github.io/" target="_blank" rel="noopener noreferrer">Md Sam Hussain · Portfolio</a>
-  </div>
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>

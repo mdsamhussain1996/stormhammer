@@ -154,6 +154,11 @@ export class WraithBoss extends Phaser.Physics.Arcade.Sprite {
     this.hp -= amount;
     this.hurtTimer = 0.15;
     this.scene.fx.flashWhite(this);
+    if (this.scene.fx.showDamageNumber) {
+      this.scene.fx.showDamageNumber(this.x, this.y - 25, amount, true);
+    }
+    this.scene.fx.hitStop(120);
+    this.scene.fx.zoomPunch(1.06, 120);
     audio.playSfx('hit');
 
     if (this.hp <= 0) {
@@ -173,7 +178,11 @@ export class WraithBoss extends Phaser.Physics.Arcade.Sprite {
     audio.playSfx('die');
     this.scene.fx.burst(this.x, this.y, 40, [0x9d54c0, 0x7090b8, 0xffffff], 340, 1000, 0);
     this.scene.fx.shake(0.02, 600);
-    this.scene.fx.zoomPunch(1.12, 250);
+    if (this.scene.fx.slowMoFinish) {
+      this.scene.fx.slowMoFinish(400);
+    } else {
+      this.scene.fx.zoomPunch(1.12, 250);
+    }
 
     for (let i = 0; i < 6; i++) {
       this.scene.pickupsGroup.add(new Pickup(this.scene, this.x + (i - 2.5) * 12, this.y, 'coin'));

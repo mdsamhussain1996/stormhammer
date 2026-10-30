@@ -25,7 +25,7 @@ export class Hammer extends Phaser.GameObjects.Container {
     this.body.setSize(32, 32);
     this.body.setOffset(-16, -16);
 
-    this.state = 'held'; // 'held', 'thrown_out', 'returning'
+    this.state = 'held'; // 'held', 'thrown_out', 'returning', 'anchored'
     this.thrownDistance = 0;
     this.maxThrowDistance = 320;
     this.throwSpeed = 700;
@@ -34,9 +34,35 @@ export class Hammer extends Phaser.GameObjects.Container {
     this.hitEnemies = new Set();
     this.isCharged = false;
     this.isPulling = false;
+    this.bouncesRemaining = 2; // Ricochet up to 2x off walls
+    this.canAnchor = true;
+    this.isAnchorPlatform = false;
+    this.anchorTimer = 0;
     this.setDepth(28);
 
+    // One-way platform body when anchored
+    this.anchorPlatform = scene.physics.add.staticSprite(0, 0, null)
+      .setSize(38, 12)
+      .setVisible(false);
+    this.anchorPlatform.body.checkCollision.down = false;
+    this.anchorPlatform.body.checkCollision.left = false;
+    this.anchorPlatform.body.checkCollision.right = false;
+
+    // Collider with hero
+    scene.physics.add.collider(this.hero, this.anchorPlatform);
+
     this.setVisible(false);
+  }
+
+  anchorToWall() {
+    this.state = 'anchored';
+    this.body.setVelocity(0, 0);
+    this.anchorTimer = 3.0; // sticks for 3 seconds
+    this.isAnchorPlatform = true;
+    this.anchorPlatform.setPosition(this.x, this.y - 12);
+    this.anchorPlatform.refreshBody();
+    this.scene.fx.burst(this.x, this.y, 10, [0xf2c14e, 0x7fd4ff, 0xffffff], 140, 300, 0);
+    audio.playSfx('power');
   }
 
   isHeld() {
@@ -49,6 +75,10 @@ export class Hammer extends Phaser.GameObjects.Container {
     this.state = 'thrown_out';
     this.isCharged = charged;
     this.isPulling = false;
+    this.bouncesRemaining = 2;
+    this.isAnchorPlatform = false;
+    this.anchorPlatform.setPosition(-999, -999);
+    this.anchorPlatform.refreshBody();
     this.thrownDistance = 0;
     this.maxThrowDistance = charged ? 560 : (this.hero.stormTimer > 0 ? 420 : 320);
     this.throwSpeed = charged ? 850 : 700;
@@ -94,6 +124,19 @@ export class Hammer extends Phaser.GameObjects.Container {
       return;
     }
 
+    if (this.state === 'anchored') {
+      this.setVisible(true);
+      this.anchorTimer -= dt;
+      // Gentle vibration pulse before breaking loose
+      if (this.anchorTimer < 0.6) {
+        this.x += (Math.random() - 0.5) * 2;
+      }
+      if (this.anchorTimer <= 0) {
+        this.turnAround();
+      }
+      return;
+    }
+
     this.setVisible(true);
     this.throwTimer += dt;
 
@@ -101,8 +144,8 @@ export class Hammer extends Phaser.GameObjects.Container {
     const spinRate = this.isCharged ? 38 : 26;
     this.sprite.rotation += dt * spinRate * Math.sign(this.body.velocity.x || this.hero.facing);
 
-    // Force return after 3s to guarantee it never gets stuck
-    if (this.throwTimer > 3.0 && this.state !== 'returning') {
+    // Force return after 3.5s to guarantee it never gets stuck
+    if (this.throwTimer > 3.5 && this.state !== 'returning' && this.state !== 'anchored') {
       this.turnAround();
     }
 
@@ -127,13 +170,24 @@ export class Hammer extends Phaser.GameObjects.Container {
         });
       }
 
-      // Check collision with solid tiles
+      // Check collision with solid tiles: Anchor or Ricochet
       const tileX = Math.floor(this.x / 40);
       const tileY = Math.floor(this.y / 40);
       if (this.scene.isSolidTile && this.scene.isSolidTile(tileX, tileY)) {
-        this.scene.fx.burst(this.x, this.y, 6, [0xffffff, 0xcfd6de], 140, 250, 0);
+        this.scene.fx.burst(this.x, this.y, 8, [0xffffff, 0xcfd6de, 0xf2c14e], 140, 250, 0);
         audio.playSfx('hit');
-        this.turnAround();
+
+        if (this.bouncesRemaining > 0 && !this.isCharged) {
+          // Ricochet bounce off wall!
+          this.bouncesRemaining--;
+          this.body.setVelocityX(-this.body.velocity.x * 0.9);
+          this.body.setVelocityY(Phaser.Math.Between(-200, 200));
+        } else if (this.canAnchor && !this.isAnchorPlatform) {
+          // Hammer Anchor Trick: Sticks into wall and forms a 3s platform hero can stand on
+          this.anchorToWall();
+        } else {
+          this.turnAround();
+        }
       }
     } else if (this.state === 'returning') {
       // Home directly to hero's hand

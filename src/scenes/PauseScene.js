@@ -71,6 +71,16 @@ export class PauseScene extends Phaser.Scene {
       this.scene.stop();
     });
 
+    // Portfolio link on pause screen
+    const portText = this.add.text(W / 2, H / 2 + 148, 'Crafted by Md Sam Hussain · Portfolio', {
+      fontFamily: "'Alegreya Sans SC', sans-serif",
+      fontSize: '12px',
+      color: '#7fd4ff'
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    portText.on('pointerdown', () => {
+      window.open('https://mdsamhussain1996.github.io/', '_blank');
+    });
+
     // Keyboard resume shortcuts
     this.input.keyboard.on('keydown-P', () => this.resumeGame());
     this.input.keyboard.on('keydown-ESC', () => this.resumeGame());

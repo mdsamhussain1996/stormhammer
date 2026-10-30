@@ -137,6 +137,11 @@ export class TreantBoss extends Phaser.Physics.Arcade.Sprite {
     this.hp -= amount;
     this.hurtTimer = 0.15;
     this.scene.fx.flashWhite(this);
+    if (this.scene.fx.showDamageNumber) {
+      this.scene.fx.showDamageNumber(this.x, this.y - 25, amount, true);
+    }
+    this.scene.fx.hitStop(120);
+    this.scene.fx.zoomPunch(1.06, 120);
     audio.playSfx('hit');
 
     if (this.hp <= 0) {
@@ -156,7 +161,11 @@ export class TreantBoss extends Phaser.Physics.Arcade.Sprite {
     audio.playSfx('die');
     this.scene.fx.burst(this.x, this.y, 36, [0x4a7a3a, 0x8a5a2a, 0xf2c14e, 0xffffff], 320, 1000, 600);
     this.scene.fx.shake(0.02, 600);
-    this.scene.fx.zoomPunch(1.12, 250);
+    if (this.scene.fx.slowMoFinish) {
+      this.scene.fx.slowMoFinish(400);
+    } else {
+      this.scene.fx.zoomPunch(1.12, 250);
+    }
 
     // Drop loot reward: 5 coins + 1 Heart + 1 Storm
     for (let i = 0; i < 5; i++) {

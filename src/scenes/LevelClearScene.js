@@ -119,8 +119,8 @@ export class LevelClearScene extends Phaser.Scene {
       starsContainer.add([starIcon, subTxt]);
     });
 
-    // Onward button: Goes to The Thunder Forge (or Victory if Realm 3)
-    const isFinalRealm = this.realm >= 3;
+    // Onward button: Goes to The Thunder Forge (or Victory if Realm 5)
+    const isFinalRealm = this.realm >= 5;
     const btnText = isFinalRealm ? 'Claim Victory' : `Visit Thunder Forge ➔`;
 
     const btnW = 250;

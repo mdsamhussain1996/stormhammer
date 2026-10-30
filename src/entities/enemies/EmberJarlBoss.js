@@ -178,6 +178,11 @@ export class EmberJarlBoss extends Phaser.Physics.Arcade.Sprite {
     this.hp -= amount;
     this.hurtTimer = 0.15;
     this.scene.fx.flashWhite(this);
+    if (this.scene.fx.showDamageNumber) {
+      this.scene.fx.showDamageNumber(this.x, this.y - 25, amount, true);
+    }
+    this.scene.fx.hitStop(120);
+    this.scene.fx.zoomPunch(1.08, 120);
     audio.playSfx('hit');
 
     if (this.hp <= 0) {
@@ -197,7 +202,11 @@ export class EmberJarlBoss extends Phaser.Physics.Arcade.Sprite {
     audio.playSfx('die');
     this.scene.fx.burst(this.x, this.y, 45, [0xff3300, 0xff7700, 0xf2c14e, 0xffffff], 360, 1200, 600);
     this.scene.fx.shake(0.025, 700);
-    this.scene.fx.zoomPunch(1.15, 300);
+    if (this.scene.fx.slowMoFinish) {
+      this.scene.fx.slowMoFinish(450);
+    } else {
+      this.scene.fx.zoomPunch(1.15, 300);
+    }
 
     for (let i = 0; i < 8; i++) {
       this.scene.pickupsGroup.add(new Pickup(this.scene, this.x + (i - 3.5) * 12, this.y, 'coin'));

@@ -1,6 +1,8 @@
 import level1Data from '../levels/level1.json';
 import level2Data from '../levels/level2.json';
 import level3Data from '../levels/level3.json';
+import level4Data from '../levels/level4.json';
+import level5Data from '../levels/level5.json';
 
 import { Hero } from '../entities/Hero.js';
 import { Grunt } from '../entities/enemies/Grunt.js';
@@ -12,6 +14,7 @@ import { ShieldKnight } from '../entities/enemies/ShieldKnight.js';
 import { TreantBoss } from '../entities/enemies/TreantBoss.js';
 import { WraithBoss } from '../entities/enemies/WraithBoss.js';
 import { EmberJarlBoss } from '../entities/enemies/EmberJarlBoss.js';
+import { StormcallerBoss } from '../entities/enemies/StormcallerBoss.js';
 
 import { Crate } from '../objects/Crate.js';
 import { Urn } from '../objects/Urn.js';
@@ -44,8 +47,8 @@ export class GameScene extends Phaser.Scene {
     this.hasLevelCleared = false;
     this.hasHeroDied = false;
 
-    // 1. Select level JSON
-    const levelMap = { 1: level1Data, 2: level2Data, 3: level3Data };
+    // 1. Select level JSON (5 Total Realms)
+    const levelMap = { 1: level1Data, 2: level2Data, 3: level3Data, 4: level4Data, 5: level5Data };
     this.levelData = levelMap[this.currentRealm] || level1Data;
     this.theme = this.levelData.theme;
 
@@ -69,7 +72,10 @@ export class GameScene extends Phaser.Scene {
     this.parallax = new ParallaxSystem(this, this.theme, this.worldWidthPx, this.worldHeightPx);
 
     // Weather & Ambient particles
-    const ambientType = this.theme === 'fortress' ? 'ember' : this.theme === 'castle' ? 'dust' : 'leaf';
+    const ambientType = this.theme === 'fortress' ? 'ember' :
+                        this.theme === 'castle' ? 'dust' :
+                        this.theme === 'frost' ? 'snow' :
+                        this.theme === 'storm' ? 'storm' : 'leaf';
     this.fx.initAmbient(ambientType, this.worldWidthPx, this.worldHeightPx);
 
     // Start Realm Theme BGM
@@ -400,6 +406,10 @@ export class GameScene extends Phaser.Scene {
           enemy = new EmberJarlBoss(this, ex, ey);
           this.activeBoss = enemy;
           break;
+        case 'stormcaller_boss':
+          enemy = new StormcallerBoss(this, ex, ey);
+          this.activeBoss = enemy;
+          break;
       }
 
       if (enemy) {
@@ -585,6 +595,9 @@ export class GameScene extends Phaser.Scene {
     // Camera look-ahead in facing direction
     const targetOffset = -this.hero.facing * 50;
     this.cameras.main.followOffset.x = Phaser.Math.Linear(this.cameras.main.followOffset.x, targetOffset, 0.05);
+
+    // Screen-space vignette pulse when HP is 1
+    this.fx.pulseLowHpVignette(this.hero.hp === 1 && !this.hero.heroDead);
 
     // Update FX (with hero for verlet cape simulation) & Parallax ambient drift
     this.fx.update(time, delta, this.hero);

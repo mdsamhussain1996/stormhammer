@@ -28,6 +28,10 @@ export class InputSystem {
       x: Phaser.Input.Keyboard.KeyCodes.X,
       l: Phaser.Input.Keyboard.KeyCodes.L,
       c: Phaser.Input.Keyboard.KeyCodes.C,
+      shift: Phaser.Input.Keyboard.KeyCodes.SHIFT,
+      q: Phaser.Input.Keyboard.KeyCodes.Q,
+      e: Phaser.Input.Keyboard.KeyCodes.E,
+      r: Phaser.Input.Keyboard.KeyCodes.R,
       p: Phaser.Input.Keyboard.KeyCodes.P,
       esc: Phaser.Input.Keyboard.KeyCodes.ESC
     });
@@ -45,6 +49,9 @@ export class InputSystem {
       throwJustPressed: false,
       throwJustReleased: false,
       throwHeldDuration: 0,
+      dashJustPressed: false,
+      parryJustPressed: false,
+      runeJustPressed: false,
       thunder: false,
       thunderJustPressed: false,
       pauseJustPressed: false
@@ -196,8 +203,8 @@ export class InputSystem {
       () => { this.touchState.right = false; }
     );
 
-    // Actions (bottom right): Thunder, Throw, Swing, Jump
-    createBtn(W - pad - btnSize / 2 - gap * 3, H - pad - btnSize / 2, '⚡', 'THUNDER',
+    // Actions: Rune (top right cluster), Dash (above jump), Thunder, Throw, Swing, Jump
+    createBtn(W - pad - btnSize / 2 - gap * 3, H - pad - btnSize / 2, '⚡', 'STORM',
       () => { this.touchState.thunder = true; this.touchState.thunderJustPressed = true; },
       () => { this.touchState.thunder = false; }
     );
@@ -225,6 +232,17 @@ export class InputSystem {
     createBtn(W - pad - btnSize / 2, H - pad - btnSize / 2, '▲', 'JUMP',
       () => { this.touchState.jump = true; this.touchState.jumpJustPressed = true; },
       () => { this.touchState.jump = false; }
+    );
+
+    // Upper actions: Dash and Rune swap
+    createBtn(W - pad - btnSize / 2, H - pad - btnSize / 2 - gap, '💨', 'DASH',
+      () => { this.touchState.dashJustPressed = true; },
+      () => {}
+    );
+
+    createBtn(W - pad - btnSize / 2 - gap, H - pad - btnSize / 2 - gap, 'ᚱ', 'RUNE',
+      () => { this.touchState.runeJustPressed = true; },
+      () => {}
     );
   }
 
@@ -344,8 +362,32 @@ export class InputSystem {
     return keyRel || touchRel || padRel;
   }
 
+  justDash() {
+    const keyDash = Phaser.Input.Keyboard.JustDown(this.keys.shift) || Phaser.Input.Keyboard.JustDown(this.keys.c);
+    const touchDash = this.touchState.dashJustPressed;
+    this.touchState.dashJustPressed = false;
+    const padDash = this.consumePadJustDown(5); // RB / R1
+    return keyDash || touchDash || padDash;
+  }
+
+  justParry() {
+    const keyParry = Phaser.Input.Keyboard.JustDown(this.keys.q);
+    const touchParry = this.touchState.parryJustPressed;
+    this.touchState.parryJustPressed = false;
+    const padParry = this.consumePadJustDown(4); // LB / L1
+    return keyParry || touchParry || padParry;
+  }
+
+  justRuneSwap() {
+    const keyRune = Phaser.Input.Keyboard.JustDown(this.keys.e) || Phaser.Input.Keyboard.JustDown(this.keys.r);
+    const touchRune = this.touchState.runeJustPressed;
+    this.touchState.runeJustPressed = false;
+    const padRune = this.consumePadJustDown(8); // Select / Back
+    return keyRune || touchRune || padRune;
+  }
+
   justThunder() {
-    const keyThunder = Phaser.Input.Keyboard.JustDown(this.keys.l) || Phaser.Input.Keyboard.JustDown(this.keys.c);
+    const keyThunder = Phaser.Input.Keyboard.JustDown(this.keys.l);
     const touchThunder = this.touchState.thunderJustPressed;
     this.touchState.thunderJustPressed = false;
     const padY = this.consumePadJustDown(3); // Y button

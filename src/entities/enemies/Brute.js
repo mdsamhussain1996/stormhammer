@@ -166,6 +166,9 @@ export class Brute extends Phaser.Physics.Arcade.Sprite {
     this.hp -= amount;
     this.hurtTimer = 0.18;
     this.scene.fx.flashWhite(this);
+    if (this.scene.fx.showDamageNumber) {
+      this.scene.fx.showDamageNumber(this.x, this.y - 20, amount, amount >= 2);
+    }
 
     // If not charging, small stagger
     if (this.mode !== 'charge') {

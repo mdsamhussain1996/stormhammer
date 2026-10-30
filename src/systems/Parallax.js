@@ -47,12 +47,23 @@ export class ParallaxSystem {
       .setScrollFactor(0)
       .setDepth(-70);
     this.layers.push(layer3);
+
+    // Parallax Layer 4 (FOREGROUND silhouettes passing in front of camera at 20-32% alpha)
+    const fgKey = `bg_fg_${this.theme}`;
+    if (this.scene.textures.exists(fgKey)) {
+      const layer4 = this.scene.add.tileSprite(0, 0, W, H, fgKey)
+        .setOrigin(0, 0)
+        .setScrollFactor(0)
+        .setDepth(35); // in front of tiles and hero!
+      this.layers.push(layer4);
+    }
   }
 
   update(time, delta) {
     const dt = (delta || 16) / 1000;
     const cam = this.scene.cameras.main;
     const camX = cam ? cam.scrollX : 0;
+    const camY = cam ? cam.scrollY : 0;
 
     // Ambient slow drift: drifting clouds/smoke (layer 1) and gentle parallax sway
     this.drift1 += 4.5 * dt;
@@ -60,12 +71,20 @@ export class ParallaxSystem {
 
     if (this.layers[1]) {
       this.layers[1].tilePositionX = camX * 0.08 + this.drift1;
+      this.layers[1].tilePositionY = camY * 0.04;
     }
     if (this.layers[2]) {
       this.layers[2].tilePositionX = camX * 0.22 + this.drift2;
+      this.layers[2].tilePositionY = camY * 0.08;
     }
     if (this.layers[3]) {
       this.layers[3].tilePositionX = camX * 0.42;
+      this.layers[3].tilePositionY = camY * 0.12;
+    }
+    if (this.layers[4]) {
+      // Foreground layer moves FASTER than camera (1.35x) for powerful stereoscopic depth
+      this.layers[4].tilePositionX = camX * 1.35;
+      this.layers[4].tilePositionY = camY * 0.25;
     }
   }
 
